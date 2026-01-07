@@ -1,3 +1,4 @@
+import 'package:belajar_mabrur/repositories/auth_repository.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -22,14 +23,29 @@ class _LoginScreenState extends State<LoginScreen> {
     return Scaffold(
       body: SafeArea(
         child: BlocConsumer<AuthBloc, AuthState>(
-          listener: (context, state) {
+          listener: (context, state) async{
             if (state is AuthSuccess) {
-              // --- LOGIKA ROLE-BASED FCM ---
+              
+              // --- LOGIKA GROUP-BASED FCM (UPDATED) ---
+              // Ambil group ID dari repository (atau state jika Anda menambahkannya ke AuthState)
+              final authRepo = context.read<AuthRepository>();
+              final groupId = await authRepo.getGroupId();
+              
+              // Nama topik dinamis berdasarkan Group ID
+              // Contoh: sos_group_1, sos_group_A, sos_group_default
+              final topicName = "sos_group_$groupId"; 
+
               if (state.role == 'host') {
-                FirebaseMessaging.instance.subscribeToTopic("role_host");
-                debugPrint("Dashboard: Mendaftarkan perangkat sebagai Host ke Topik SOS");
+                // Host subscribe ke topik grupnya untuk menerima SOS dari user grup tsb
+                FirebaseMessaging.instance.subscribeToTopic(topicName);
+                debugPrint("HOST: Subscribed ke topik $topicName");
+                
+                // Opsional: Unsubscribe dari topik lama jika user pindah grup/akun
+                // (Membutuhkan logika penyimpanan topik lama, untuk simpelnya kita asumsikan 1 device 1 user)
               } else {
-                FirebaseMessaging.instance.unsubscribeFromTopic("role_host");
+                // User biasa tidak perlu dengar SOS, jadi unsubscribe (untuk jaga-jaga)
+                FirebaseMessaging.instance.unsubscribeFromTopic(topicName);
+                debugPrint("USER: Unsubscribed dari topik $topicName");
               }
 
               ScaffoldMessenger.of(context).showSnackBar(
@@ -40,7 +56,9 @@ class _LoginScreenState extends State<LoginScreen> {
                 context,
                 MaterialPageRoute(builder: (_) => const DashboardScreen())
               );
-            } else if (state is AuthFailure) {
+            }
+            
+            else if (state is AuthFailure) {
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(content: Text(state.error), backgroundColor: const Color(0xFFA01C1C)),
               );

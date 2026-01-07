@@ -131,8 +131,8 @@ class _MyAppState extends State<MyApp> {
       if (notification != null) {
         flutterLocalNotificationsPlugin.show(
           notification.hashCode,
-          "SOS DARI $senderName", // Mengganti Judul statis
-          "$senderName butuh bantuan segera!", // Mengganti Body statis
+          "SOS DARI $senderName", // Judul Dinamis
+          "$senderName butuh bantuan segera!", // Body Dinamis
           NotificationDetails(android: AndroidNotificationDetails(channel.id, channel.name, icon: '@mipmap/ic_launcher', importance: Importance.max, priority: Priority.high)),
           payload: jsonEncode(message.data),
         );

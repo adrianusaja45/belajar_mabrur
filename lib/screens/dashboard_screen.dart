@@ -1,6 +1,7 @@
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import '../repositories/auth_repository.dart'; // Import Repo untuk akses getGroupId
 import '../bloc/dashboard_cubit.dart';
 import '../bloc/auth_bloc.dart';
 import 'home_tab.dart';
@@ -16,7 +17,9 @@ class DashboardScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     // PENTING: BlocProvider DIHAPUS agar menggunakan instansi global dari main.dart
     return BlocListener<AuthBloc, AuthState>(
-      listener: (context, state) {
+      // Tambahkan 'async' agar bisa mengambil data Group ID dari repository
+      listener: (context, state) async {
+        
         // 1. LOGIKA REDIRECT KE LOGIN JIKA LOGOUT
         if (state is AuthInitial) {
           Navigator.pushAndRemoveUntil(
@@ -26,19 +29,35 @@ class DashboardScreen extends StatelessWidget {
           );
         }
 
-        // 2. LOGIKA AUTO-SUBSCRIBE UNTUK ROLE HOST
+        // 2. LOGIKA AUTO-SUBSCRIBE DINAMIS BERDASARKAN GROUP
         if (state is AuthSuccess) {
           if (state.role == 'host') {
-            FirebaseMessaging.instance.subscribeToTopic("role_host");
-            debugPrint("Dashboard: User adalah Host, Subscribed ke role_host");
+            // Ambil Group ID dari Repository (Local Storage)
+            final authRepo = context.read<AuthRepository>();
+            String groupId = await authRepo.getGroupId();
+            
+            // Buat Nama Topik Dinamis
+            String groupTopic = "sos_group_$groupId";
+
+            // Subscribe ke Topik Grup Spesifik
+            await FirebaseMessaging.instance.subscribeToTopic(groupTopic);
+            debugPrint("Dashboard: Host Subscribed ke topik: $groupTopic");
+            
+            // Opsional: Unsubscribe dari role_host global jika tidak dipakai lagi
+            // FirebaseMessaging.instance.unsubscribeFromTopic("role_host");
           } else {
-            FirebaseMessaging.instance.unsubscribeFromTopic("role_host");
-            debugPrint("Dashboard: User bukan Host, Unsubscribed dari role_host");
+            // Jika user biasa, pastikan tidak subscribe (atau unsubscribe jika perlu)
+            // User biasa mengirim ke topik, tidak perlu mendengar (kecuali fitur chat grup)
+            final authRepo = context.read<AuthRepository>();
+            String groupId = await authRepo.getGroupId();
+            String groupTopic = "sos_group_$groupId";
+            
+            await FirebaseMessaging.instance.unsubscribeFromTopic(groupTopic);
+            debugPrint("Dashboard: User Unsubscribed dari topik: $groupTopic");
           }
         }
       },
       child: Scaffold(
-        // Menggunakan DashboardState karena Cubit sudah diupdate
         body: BlocBuilder<DashboardCubit, DashboardState>(
           builder: (context, state) {
             return IndexedStack(

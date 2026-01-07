@@ -23,6 +23,8 @@ class MapSosTabState extends State<MapSosTab> {
   final Set<Marker> _markers = {};
   String _userRole = 'user';
   bool _isLoading = false;
+  // Variabel loading khusus untuk tombol reset agar tidak bentrok dengan tombol SOS
+  bool _isResetting = false; 
 
   @override
   void initState() {
@@ -54,14 +56,34 @@ class MapSosTabState extends State<MapSosTab> {
     if (!mounted) return;
     final LatLng newPos = LatLng(lat, lng);
     setState(() {
+      // Hapus marker lokasi lama agar tidak duplikat
+      _markers.removeWhere((m) => m.markerId.value == 'my_loc');
+      
       _markers.add(Marker(
         markerId: const MarkerId('my_loc'), 
         position: newPos, 
-        infoWindow: const InfoWindow(title: 'Lokasi Saya')
+        infoWindow: const InfoWindow(title: 'Lokasi Saya'),
+        // Opsional: Beri warna biru untuk membedakan dengan SOS
+        icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure),
       ));
     });
     final controller = await _controller.future;
     controller.animateCamera(CameraUpdate.newLatLngZoom(newPos, 15.0));
+  }
+
+  // --- FITUR BARU: RESET POSISI ---
+  Future<void> _resetToMyLocation() async {
+    setState(() => _isResetting = true);
+    try {
+      Position position = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high
+      );
+      await _updateMapLocation(position.latitude, position.longitude);
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Gagal mendapatkan lokasi terkini.")));
+    } finally {
+      if (mounted) setState(() => _isResetting = false);
+    }
   }
 
   Future<void> _sendSOS() async {
@@ -70,6 +92,9 @@ class MapSosTabState extends State<MapSosTab> {
     try {
       final userProfile = await context.read<AuthRepository>().getProfile();
       final String senderName = userProfile['name'] ?? "Seseorang";
+      
+      final String groupId = userProfile['group_id']?.toString() ?? 'default';
+      final String targetTopic = "sos_group_$groupId"; 
 
       Position position = await Geolocator.getCurrentPosition(
         desiredAccuracy: LocationAccuracy.high, 
@@ -83,9 +108,9 @@ class MapSosTabState extends State<MapSosTab> {
 
       final notificationData = {
         "message": {
-          "topic": "role_host",
+          "topic": targetTopic,
           "notification": {
-            "title": "DARURAT", 
+            "title": "DARURAT (Group $groupId)", 
             "body": "$senderName butuh bantuan segera!"
           },
           "android": { "priority": "high" },
@@ -93,6 +118,7 @@ class MapSosTabState extends State<MapSosTab> {
             "lat": position.latitude.toString(),
             "lng": position.longitude.toString(),
             "sender_name": senderName,
+            "group_id": groupId,
             "type": "sos"
           }
         }
@@ -168,7 +194,6 @@ class MapSosTabState extends State<MapSosTab> {
     controller.animateCamera(CameraUpdate.newLatLngZoom(sosPos, 17.0));
   }
 
-  // UPDATE: Dialog konfirmasi hapus
   void _confirmClearHistory(BuildContext context) {
     showDialog(
       context: context,
@@ -204,11 +229,31 @@ class MapSosTabState extends State<MapSosTab> {
             initialCameraPosition: const CameraPosition(target: LatLng(-6.175, 106.82), zoom: 12), 
             markers: _markers, 
             myLocationEnabled: true, 
+            // Kita matikan tombol default Google karena kita buat custom di bawah
             myLocationButtonEnabled: false, 
+            zoomControlsEnabled: false, // Hilangkan tombol +/- bawaan agar lebih bersih
             onMapCreated: (c) => _controller.complete(c)
           ),
+          
           if (_userRole == 'host') _buildHostSosPanel(),
           if (_userRole != 'host') Positioned(bottom: 30, left: 20, right: 20, child: _buildUserSosButton()),
+          
+          // --- TOMBOL RESET POSISI ---
+          // Posisi: Kanan Atas (agar tidak tertutup panel bawah)
+          Positioned(
+            top: 50, // Sesuaikan dengan safe area / status bar
+            right: 20,
+            child: FloatingActionButton(
+              heroTag: "btnReset", // Wajib jika ada multiple FAB
+              mini: true, // Ukuran kecil
+              backgroundColor: Colors.white,
+              foregroundColor: const Color(0xFFA01C1C), // Warna ikon merah
+              onPressed: _isResetting ? null : _resetToMyLocation,
+              child: _isResetting 
+                  ? const SizedBox(width: 15, height: 15, child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFFA01C1C)))
+                  : const Icon(Icons.my_location),
+            ),
+          ),
         ],
       ),
     );
@@ -247,7 +292,6 @@ class MapSosTabState extends State<MapSosTab> {
               const SizedBox(height: 12),
               Center(child: Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(10)))),
               
-              // UPDATE: Header dengan tombol Hapus
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
                 child: Row(

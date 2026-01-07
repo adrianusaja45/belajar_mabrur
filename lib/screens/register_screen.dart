@@ -15,7 +15,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final TextEditingController usernameController = TextEditingController();
   final TextEditingController passwordController = TextEditingController();
 
-  // Variable untuk menyimpan status sembunyi/lihat password
   bool _isObscure = true;
 
   @override
@@ -24,17 +23,18 @@ class _RegisterScreenState extends State<RegisterScreen> {
       body: SafeArea(
         child: BlocConsumer<AuthBloc, AuthState>(
           listener: (context, state) {
-            if (state is AuthSuccess) {
+            // [UBAH DISINI] Cek state RegisterSuccess
+            if (state is RegisterSuccess) {
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(
                   content: Text("Registrasi Berhasil! Silakan Login."),
                   backgroundColor: Colors.green,
                 ),
               );
-              Navigator.pop(context); // Kembali ke Login
+              Navigator.pop(context); // Ini akan membawa user kembali ke Login Screen
             } else if (state is AuthFailure) {
               ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text(state.error), backgroundColor: Color(0xFFA01C1C)),
+                SnackBar(content: Text(state.error), backgroundColor: const Color(0xFFA01C1C)),
               );
             }
           },
@@ -99,14 +99,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       ),
                       const SizedBox(height: 15),
 
-                      // Input Password (DENGAN TOGGLE VISIBILITY)
+                      // Input Password
                       TextFormField(
                         controller: passwordController,
                         decoration: InputDecoration(
                           labelText: "Password",
                           border: const OutlineInputBorder(),
                           prefixIcon: const Icon(Icons.lock),
-                          // Icon Mata
                           suffixIcon: IconButton(
                             icon: Icon(
                               _isObscure ? Icons.visibility : Icons.visibility_off,
@@ -114,12 +113,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             ),
                             onPressed: () {
                               setState(() {
-                                _isObscure = !_isObscure; // Ubah status true/false
+                                _isObscure = !_isObscure;
                               });
                             },
                           ),
                         ),
-                        obscureText: _isObscure, // Gunakan variable state
+                        obscureText: _isObscure,
                         validator: (value) {
                           if (value == null || value.isEmpty) return 'Password tidak boleh kosong';
                           if (value.length < 6) return 'Password minimal 6 karakter';
@@ -133,7 +132,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         width: double.infinity,
                         height: 50,
                         child: ElevatedButton(
-                          style: ElevatedButton.styleFrom(backgroundColor: Color(0xFFA01C1C)),
+                          style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFA01C1C)),
+                          // Disable tombol saat loading
                           onPressed: state is AuthLoading 
                             ? null 
                             : () {

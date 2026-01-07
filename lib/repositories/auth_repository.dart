@@ -25,13 +25,14 @@ class AuthRepository {
 
       if (response.statusCode == 200) {
         String token = data['data']['token'];
-        // Mengambil role 'host' atau 'user' sesuai data server
         String role = data['data']['user']['role'] ?? 'user';
         String userId = data['data']['user']['id'].toString();
+        // AMBIL GROUP ID
+        String groupId = data['data']['user']['group_id']?.toString() ?? 'default';
 
         await _saveToken(token);
-        await _saveUserData(role, userId);
-        debugPrint("Login Berhasil - Role: $role");
+        await _saveUserData(role, userId, groupId); // Update fungsi ini
+        debugPrint("Login Berhasil - Role: $role, Group: $groupId");
         return data;
       } else {
         throw Exception(data['message'] ?? 'Login Gagal');
@@ -93,7 +94,10 @@ class AuthRepository {
     if (response.statusCode == 200) {
       String role = data['data']['role'] ?? 'user';
       String userId = data['data']['id'].toString();
-      await _saveUserData(role, userId); // Sinkronisasi role lokal
+      // AMBIL GROUP ID
+      String groupId = data['data']['group_id']?.toString() ?? 'default';
+      
+      await _saveUserData(role, userId, groupId); // Sinkronisasi lokal
       return data['data']; 
     } else {
       if (response.statusCode == 401) await logout();
@@ -179,10 +183,17 @@ class AuthRepository {
   }
 
   // --- HELPERS ---
-  Future<void> _saveUserData(String role, String id) async {
+ Future<void> _saveUserData(String role, String id, String groupId) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('user_role', role);
     await prefs.setString('saved_user_id', id);
+    await prefs.setString('user_group_id', groupId); // Simpan Group ID
+  }
+
+  // Helper baru untuk mengambil Group ID
+  Future<String> getGroupId() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString('user_group_id') ?? 'default';
   }
 
   Future<String> getRole() async {
