@@ -8,18 +8,18 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:google_maps_flutter_android/google_maps_flutter_android.dart';
 import 'package:google_maps_flutter_platform_interface/google_maps_flutter_platform_interface.dart';
 
-// --- IMPORT CONSTANTS (Untuk Warna) ---
-import 'core/constants.dart'; // <-- Pastikan ini diimport
+// --- IMPORT CONSTANTS ---
+import 'core/constants.dart';
 
-// --- IMPORT REPOSITORIES (MODEL) ---
+// --- IMPORT REPOSITORIES ---
 import 'data/repositories/auth_repository.dart';
 import 'data/repositories/content_repository.dart';
 
-// --- IMPORT LOGIC (VIEW MODEL) ---
+// --- IMPORT LOGIC ---
 import 'logic/auth/auth_bloc.dart';
 import 'logic/dashboard/dashboard_cubit.dart';
 
-// --- IMPORT SCREENS (VIEW) ---
+// --- IMPORT SCREENS ---
 import 'screens/splash_screen.dart';
 import 'screens/map_sos_tab.dart'; 
 
@@ -42,14 +42,17 @@ void main() async {
   try {
     WidgetsFlutterBinding.ensureInitialized();
     
+    // Konfigurasi Google Maps Android
     final mapsImplementation = GoogleMapsFlutterPlatform.instance;
     if (mapsImplementation is GoogleMapsFlutterAndroid) {
       mapsImplementation.useAndroidViewSurface = true;
     }
 
+    // Inisialisasi Firebase
     await Firebase.initializeApp().timeout(const Duration(seconds: 15));
     FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
     
+    // Inisialisasi Notifikasi Lokal
     await flutterLocalNotificationsPlugin
         .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
         ?.createNotificationChannel(channel);
@@ -183,23 +186,24 @@ class _MyAppState extends State<MyApp> {
           navigatorKey: navigatorKey,
           debugShowCheckedModeBanner: false,
           
-          // --- SETTING TEMA AGAR LOADING JADI MERAH ---
+          // --- THEME CONFIGURATION ---
           theme: ThemeData(
             useMaterial3: true,
-            // Gunakan ColorScheme.fromSeed untuk generate palet warna lengkap dari merah
             colorScheme: ColorScheme.fromSeed(
               seedColor: AppConstants.primaryColor, 
-              primary: AppConstants.primaryColor, // Paksa primary jadi merah
+              primary: AppConstants.primaryColor,
+              // Pastikan warna error sesuai constant
+              error: AppConstants.errorColor,
             ),
-            // Opsional: Paksa loading indicator spesifik jadi merah
             progressIndicatorTheme: const ProgressIndicatorThemeData(
               color: AppConstants.primaryColor,
             ),
-            // Konfigurasi AppBar default
             appBarTheme: const AppBarTheme(
-              backgroundColor: Colors.white,
-              surfaceTintColor: Colors.transparent, // Hilangkan tint ungu di AppBar saat scroll
+              backgroundColor: AppConstants.backgroundColor, // Pakai Constant
+              surfaceTintColor: Colors.transparent,
             ),
+            // Opsional: Atur warna Scaffold default
+            scaffoldBackgroundColor: AppConstants.backgroundColor,
           ),
           
           home: const SplashScreen(),
