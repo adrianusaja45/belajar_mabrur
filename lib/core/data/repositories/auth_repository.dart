@@ -1,8 +1,11 @@
 import 'dart:convert';
+import 'package:belajar_mabrur/data/models/content_model.dart';
 import 'package:flutter/material.dart'; // Digunakan untuk debugPrint
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
-import '../models/content_model.dart'; // Digunakan di getContents
+
+
+// Digunakan di getContents
 
 class AuthRepository {
   final String baseUrl = "https://albirr.web.id/api";

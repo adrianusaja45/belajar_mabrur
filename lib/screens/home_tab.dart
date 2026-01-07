@@ -1,17 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import '../repositories/auth_repository.dart';
-import '../bloc/content_cubit.dart';
-import '../models/content_model.dart';
+// IMPORT
+import '../data/repositories/content_repository.dart'; 
+import '../logic/content/content_cubit.dart'; 
+import '../logic/content/content_state.dart'; 
+import '../data/models/content_model.dart'; 
 
 class HomeTab extends StatelessWidget {
   const HomeTab({super.key});
 
   @override
   Widget build(BuildContext context) {
-    // Bungkus dengan BlocProvider agar Cubit bisa jalan
     return BlocProvider(
-      create: (context) => ContentCubit(context.read<AuthRepository>())..fetchContent(),
+      create: (context) => ContentCubit(context.read<ContentRepository>())..fetchContent(),
+      
       child: Scaffold(
         backgroundColor: Colors.white,
         appBar: AppBar(
@@ -33,15 +35,12 @@ class HomeTab extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 16.0),
               child: Column(
                 children: [
-                  // 1. Search Bar
-                  _SearchBar(),
+                  _buildSearchBar(), // Renamed to lowerCamelCase
                   const SizedBox(height: 15),
-                  // 2. Filter Chips
-                  _CategoryFilter(),
+                  _buildCategoryFilter(), // Renamed to lowerCamelCase
                 ],
               ),
             ),
-            
             const SizedBox(height: 10),
 
             // --- LIST KONTEN ---
@@ -56,7 +55,6 @@ class HomeTab extends StatelessWidget {
                     if (state.displayList.isEmpty) {
                       return const Center(child: Text("Data tidak ditemukan"));
                     }
-                    // Tampilkan List
                     return ListView.builder(
                       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                       itemCount: state.displayList.length,
@@ -77,7 +75,8 @@ class HomeTab extends StatelessWidget {
   }
 
   // --- WIDGET SEARCH BAR ---
-  Widget _SearchBar() {
+  // Renamed from _SearchBar to _buildSearchBar
+  Widget _buildSearchBar() {
     return Builder(
       builder: (context) {
         return Container(
@@ -88,7 +87,6 @@ class HomeTab extends StatelessWidget {
           ),
           child: TextField(
             onChanged: (value) {
-              // Panggil cubit untuk filter search
               context.read<ContentCubit>().filterContent(query: value);
             },
             decoration: const InputDecoration(
@@ -104,7 +102,8 @@ class HomeTab extends StatelessWidget {
   }
 
   // --- WIDGET CATEGORY CHIPS ---
-  Widget _CategoryFilter() {
+  // Renamed from _CategoryFilter to _buildCategoryFilter
+  Widget _buildCategoryFilter() {
     return BlocBuilder<ContentCubit, ContentState>(
       builder: (context, state) {
         String activeCategory = "All";
@@ -134,8 +133,9 @@ class HomeTab extends StatelessWidget {
                       width: 1,
                     ),
                     boxShadow: isActive ? [
-                       BoxShadow(
-                        color: Colors.red.withOpacity(0.1),
+                        BoxShadow(
+                        // FIXED: Replaced withOpacity with withValues(alpha: ...)
+                        color: Colors.red.withValues(alpha: 0.1),
                         blurRadius: 4,
                         offset: const Offset(0, 2)
                       )
@@ -157,11 +157,9 @@ class HomeTab extends StatelessWidget {
     );
   }
 
-  // --- WIDGET LIST ITEM (CARD) ---
   Widget _buildMenuItem(BuildContext context, ContentModel item) {
     return GestureDetector(
       onTap: () {
-        // Tampilkan Detail Modal saat diklik (Seperti di video)
         _showDetailModal(context, item);
       },
       child: Container(
@@ -185,17 +183,16 @@ class HomeTab extends StatelessWidget {
     );
   }
 
-  // --- DETAIL MODAL (POPUP BAWAH) ---
   void _showDetailModal(BuildContext context, ContentModel item) {
     showModalBottomSheet(
       context: context,
-      isScrollControlled: true, // Agar bisa full screen jika konten panjang
+      isScrollControlled: true, 
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (context) {
         return DraggableScrollableSheet(
-          initialChildSize: 0.7, // Tinggi awal 70% layar
+          initialChildSize: 0.7, 
           minChildSize: 0.5,
           maxChildSize: 0.95,
           expand: false,
@@ -209,7 +206,6 @@ class HomeTab extends StatelessWidget {
               child: ListView(
                 controller: controller,
                 children: [
-                  // Garis kecil handle
                   Center(
                     child: Container(
                       width: 40,
@@ -221,8 +217,6 @@ class HomeTab extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 20),
-
-                  // Judul
                   Text(
                     item.name,
                     style: const TextStyle(
@@ -232,21 +226,16 @@ class HomeTab extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 30),
-
-                  // Arab
                   Text(
                     item.arabic,
                     textAlign: TextAlign.right,
                     style: const TextStyle(
                       fontSize: 26,
                       fontWeight: FontWeight.bold,
-                      fontFamily: 'Amiri', // Pastikan font support Arab jika ada
                       height: 1.5,
                     ),
                   ),
                   const SizedBox(height: 20),
-
-                  // Latin
                   Text(
                     item.latin,
                     style: const TextStyle(
@@ -256,8 +245,6 @@ class HomeTab extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 20),
-
-                  // Terjemahan
                   const Text(
                     "Terjemahan:",
                     style: TextStyle(fontWeight: FontWeight.bold),
@@ -270,21 +257,19 @@ class HomeTab extends StatelessWidget {
                       color: Colors.grey[800],
                     ),
                   ),
-                  
                   const SizedBox(height: 20),
-                  // Deskripsi (Optional)
                   if(item.description.isNotEmpty)...[
-                     Container(
-                       padding: const EdgeInsets.all(12),
-                       decoration: BoxDecoration(
-                         color: Colors.grey[100],
-                         borderRadius: BorderRadius.circular(8)
-                       ),
-                       child: Text(
-                         item.description,
-                         style: const TextStyle(fontSize: 12, color: Colors.grey),
-                       ),
-                     )
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.grey[100],
+                          borderRadius: BorderRadius.circular(8)
+                        ),
+                        child: Text(
+                          item.description,
+                          style: const TextStyle(fontSize: 12, color: Colors.grey),
+                        ),
+                      )
                   ]
                 ],
               ),

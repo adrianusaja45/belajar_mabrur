@@ -1,14 +1,14 @@
 import 'dart:async';
-import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart' show rootBundle;
 import 'package:google_maps_flutter/google_maps_flutter.dart';
-import 'package:geolocator/geolocator.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:googleapis_auth/auth_io.dart';
-import '../repositories/auth_repository.dart';
-import '../bloc/dashboard_cubit.dart';
+
+// --- IMPORT LOGIC & SERVICES (Clean Architecture) ---
+import '../data/repositories/auth_repository.dart';
+import '../logic/dashboard/dashboard_cubit.dart';
+import '../core/services/location_services.dart'; // Pastikan path ini benar (location_service.dart bukan services.dart)
+import '../core/services/notification_service.dart'; 
 
 final GlobalKey<MapSosTabState> mapSosKey = GlobalKey<MapSosTabState>();
 
@@ -19,18 +19,23 @@ class MapSosTab extends StatefulWidget {
 }
 
 class MapSosTabState extends State<MapSosTab> {
+  final LocationService _locationService = LocationService();
+  final NotificationService _notifService = NotificationService();
+  
   final Completer<GoogleMapController> _controller = Completer();
+  
+  // Set marker ini akan menampung banyak titik sekaligus
   final Set<Marker> _markers = {};
+  
   String _userRole = 'user';
   bool _isLoading = false;
-  // Variabel loading khusus untuk tombol reset agar tidak bentrok dengan tombol SOS
   bool _isResetting = false; 
 
   @override
   void initState() {
     super.initState();
     _loadUserRole();
-    _determinePosition();
+    _initHostPosition(); // Ubah nama fungsi biar jelas
   }
 
   Future<void> _loadUserRole() async {
@@ -38,47 +43,59 @@ class MapSosTabState extends State<MapSosTab> {
     if (mounted) setState(() => _userRole = prefs.getString('user_role') ?? 'user');
   }
 
-  Future<void> _determinePosition() async {
+  // 1. UPDATE POSISI HOST (TITIK BIRU)
+  // Fungsi ini hanya mengupdate marker "my_loc" tanpa menghapus marker SOS
+  Future<void> _initHostPosition() async {
     try {
-      Position? position;
-      try {
-        position = await Geolocator.getCurrentPosition(
-          desiredAccuracy: LocationAccuracy.high, 
-          timeLimit: const Duration(seconds: 5)
-        ).timeout(const Duration(seconds: 5));
-      } catch (e) { position = null; }
+      final position = await _locationService.getCurrentPosition();
+      if (position != null && mounted) {
+        final LatLng hostPos = LatLng(position.latitude, position.longitude);
+        
+        setState(() {
+          // Hapus marker lokasi lama (host) agar tidak duplikat
+          _markers.removeWhere((m) => m.markerId.value == 'my_loc');
+          
+          // Tambahkan marker host baru
+          _markers.add(Marker(
+            markerId: const MarkerId('my_loc'), 
+            position: hostPos, 
+            infoWindow: const InfoWindow(title: 'Posisi Saya (Host)'),
+            // Warna Biru (Azure) untuk membedakan dengan SOS (Merah)
+            icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure),
+          ));
+        });
 
-      if (position != null && mounted) _updateMapLocation(position.latitude, position.longitude);
-    } catch (e) { debugPrint("Lokasi Error: $e"); }
+        // Awal buka aplikasi, arahkan kamera ke Host
+        final controller = await _controller.future;
+        controller.animateCamera(CameraUpdate.newLatLngZoom(hostPos, 15.0));
+      }
+    } catch (e) {
+      debugPrint("Gagal init lokasi: $e");
+    }
   }
 
-  Future<void> _updateMapLocation(double lat, double lng) async {
-    if (!mounted) return;
-    final LatLng newPos = LatLng(lat, lng);
-    setState(() {
-      // Hapus marker lokasi lama agar tidak duplikat
-      _markers.removeWhere((m) => m.markerId.value == 'my_loc');
-      
-      _markers.add(Marker(
-        markerId: const MarkerId('my_loc'), 
-        position: newPos, 
-        infoWindow: const InfoWindow(title: 'Lokasi Saya'),
-        // Opsional: Beri warna biru untuk membedakan dengan SOS
-        icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure),
-      ));
-    });
-    final controller = await _controller.future;
-    controller.animateCamera(CameraUpdate.newLatLngZoom(newPos, 15.0));
-  }
-
-  // --- FITUR BARU: RESET POSISI ---
+  // --- FITUR RESET POSISI ---
   Future<void> _resetToMyLocation() async {
     setState(() => _isResetting = true);
     try {
-      Position position = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.high
-      );
-      await _updateMapLocation(position.latitude, position.longitude);
+      final position = await _locationService.getCurrentPosition();
+      if (position != null) {
+        final LatLng hostPos = LatLng(position.latitude, position.longitude);
+        
+        setState(() {
+          _markers.removeWhere((m) => m.markerId.value == 'my_loc');
+          _markers.add(Marker(
+            markerId: const MarkerId('my_loc'), 
+            position: hostPos, 
+            infoWindow: const InfoWindow(title: 'Posisi Saya'),
+            icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure),
+          ));
+        });
+
+        // Kembalikan kamera ke Host
+        final controller = await _controller.future;
+        controller.animateCamera(CameraUpdate.newLatLngZoom(hostPos, 15.0));
+      }
     } catch (e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Gagal mendapatkan lokasi terkini.")));
     } finally {
@@ -86,60 +103,36 @@ class MapSosTabState extends State<MapSosTab> {
     }
   }
 
+  // --- FITUR KIRIM SOS ---
   Future<void> _sendSOS() async {
     if (!mounted) return;
     setState(() => _isLoading = true);
+    
     try {
       final userProfile = await context.read<AuthRepository>().getProfile();
       final String senderName = userProfile['name'] ?? "Seseorang";
-      
       final String groupId = userProfile['group_id']?.toString() ?? 'default';
-      final String targetTopic = "sos_group_$groupId"; 
 
-      Position position = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.high, 
-        timeLimit: const Duration(seconds: 5)
+      final position = await _locationService.getCurrentPosition();
+      if (position == null) throw Exception("Lokasi tidak ditemukan. Pastikan GPS aktif.");
+
+      await _notifService.sendSOS(
+        senderName: senderName,
+        groupId: groupId,
+        lat: position.latitude,
+        lng: position.longitude,
       );
 
-      final jsonString = await rootBundle.loadString('assets/service_account.json');
-      final Map<String, dynamic> jsonMap = jsonDecode(jsonString);
-      final serviceAccount = ServiceAccountCredentials.fromJson(jsonMap);
-      final client = await clientViaServiceAccount(serviceAccount, ['https://www.googleapis.com/auth/firebase.messaging']);
-
-      final notificationData = {
-        "message": {
-          "topic": targetTopic,
-          "notification": {
-            "title": "DARURAT (Group $groupId)", 
-            "body": "$senderName butuh bantuan segera!"
-          },
-          "android": { "priority": "high" },
-          "data": {
-            "lat": position.latitude.toString(),
-            "lng": position.longitude.toString(),
-            "sender_name": senderName,
-            "group_id": groupId,
-            "type": "sos"
-          }
-        }
-      };
-
-      await client.post(
-        Uri.parse('https://fcm.googleapis.com/v1/projects/${jsonMap['project_id']}/messages:send'),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode(notificationData),
-      );
-
-      client.close();
       if(mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("SOS Berhasil Terkirim!")));
     } catch (e) {
       debugPrint("Gagal kirim SOS: $e");
-      if(mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Gagal mengirim SOS.")));
+      if(mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Gagal: $e")));
     } finally {
       if(mounted) setState(() => _isLoading = false);
     }
   }
 
+  // --- MODAL POPUP SOS ---
   void showSOSModal(double lat, double lng, String senderName) {
     if (!mounted) return;
     showModalBottomSheet(
@@ -180,17 +173,27 @@ class MapSosTabState extends State<MapSosTab> {
     );
   }
 
+  // 2. UPDATE POSISI SOS (TITIK MERAH)
+  // Fungsi ini dipanggil saat klik notifikasi atau riwayat
   Future<void> _goToSOSLocation(double lat, double lng, String senderName) async {
     final LatLng sosPos = LatLng(lat, lng);
+    
     setState(() {
+      // Kita HANYA menghapus marker SOS lama (jika ada), marker 'my_loc' BIARKAN SAJA
+      _markers.removeWhere((m) => m.markerId.value == 'sos_target');
+      
+      // Tambah marker SOS baru (Merah)
       _markers.add(Marker(
-        markerId: MarkerId('sos_${DateTime.now().millisecondsSinceEpoch}'), 
+        markerId: const MarkerId('sos_target'), 
         position: sosPos, 
-        infoWindow: InfoWindow(title: "SOS: $senderName"),
-        icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed)
+        infoWindow: InfoWindow(title: "SOS: $senderName", snippet: "Butuh Bantuan!"),
+        icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed) // Merah
       ));
     });
+
     final controller = await _controller.future;
+    
+    // Arahkan kamera fokus ke SOS, tapi Host tetap ada di peta (jika dalam radius zoom)
     controller.animateCamera(CameraUpdate.newLatLngZoom(sosPos, 17.0));
   }
 
@@ -209,6 +212,12 @@ class MapSosTabState extends State<MapSosTab> {
             onPressed: () {
               context.read<DashboardCubit>().clearHistory();
               Navigator.pop(context);
+              
+              // Opsional: Hapus marker SOS dari peta juga saat riwayat dihapus
+              setState(() {
+                _markers.removeWhere((m) => m.markerId.value == 'sos_target');
+              });
+
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(content: Text("Riwayat berhasil dihapus."))
               );
@@ -227,27 +236,24 @@ class MapSosTabState extends State<MapSosTab> {
         children: [
           GoogleMap(
             initialCameraPosition: const CameraPosition(target: LatLng(-6.175, 106.82), zoom: 12), 
-            markers: _markers, 
+            markers: _markers, // Variable ini sekarang bisa berisi 2 marker
             myLocationEnabled: true, 
-            // Kita matikan tombol default Google karena kita buat custom di bawah
             myLocationButtonEnabled: false, 
-            zoomControlsEnabled: false, // Hilangkan tombol +/- bawaan agar lebih bersih
+            zoomControlsEnabled: false, 
             onMapCreated: (c) => _controller.complete(c)
           ),
           
           if (_userRole == 'host') _buildHostSosPanel(),
           if (_userRole != 'host') Positioned(bottom: 30, left: 20, right: 20, child: _buildUserSosButton()),
           
-          // --- TOMBOL RESET POSISI ---
-          // Posisi: Kanan Atas (agar tidak tertutup panel bawah)
+          // Tombol Reset ke Lokasi Saya
           Positioned(
-            top: 50, // Sesuaikan dengan safe area / status bar
-            right: 20,
+            top: 50, right: 20,
             child: FloatingActionButton(
-              heroTag: "btnReset", // Wajib jika ada multiple FAB
-              mini: true, // Ukuran kecil
+              heroTag: "btnReset",
+              mini: true,
               backgroundColor: Colors.white,
-              foregroundColor: const Color(0xFFA01C1C), // Warna ikon merah
+              foregroundColor: const Color(0xFFA01C1C),
               onPressed: _isResetting ? null : _resetToMyLocation,
               child: _isResetting 
                   ? const SizedBox(width: 15, height: 15, child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFFA01C1C)))

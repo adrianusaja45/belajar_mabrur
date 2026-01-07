@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:permission_handler/permission_handler.dart';
-import '../bloc/auth_bloc.dart';
+import '../logic/auth/auth_bloc.dart';
 import 'login_screen.dart';
 import 'dashboard_screen.dart';
 

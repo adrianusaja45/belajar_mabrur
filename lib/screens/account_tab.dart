@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import '../repositories/auth_repository.dart';
-import '../bloc/auth_bloc.dart';
+import '../data/repositories/auth_repository.dart';
+import '../logic/auth/auth_bloc.dart';
 
 class AccountTab extends StatefulWidget {
   const AccountTab({super.key});
@@ -25,7 +25,6 @@ class _AccountTabState extends State<AccountTab> {
     });
   }
 
-  // ... (Kode Dialog Edit & Change Password tetap sama, tidak perlu diubah) ...
   // --- DIALOG EDIT PROFILE ---
   void _showEditProfileDialog(String currentName, String currentUsername) {
     final nameController = TextEditingController(text: currentName);
@@ -34,9 +33,9 @@ class _AccountTabState extends State<AccountTab> {
 
     showDialog(
       context: context,
-      builder: (context) {
+      builder: (dialogContext) { // Renamed context to dialogContext
         return StatefulBuilder(
-          builder: (context, setDialogState) {
+          builder: (builderContext, setDialogState) { // Renamed context to builderContext
             return AlertDialog(
               title: const Text("Edit Profil"),
               content: Column(
@@ -54,24 +53,47 @@ class _AccountTabState extends State<AccountTab> {
                 ],
               ),
               actions: [
-                TextButton(onPressed: () => Navigator.pop(context), child: const Text("Batal")),
+                TextButton(
+                  onPressed: () => Navigator.pop(dialogContext), 
+                  child: const Text("Batal")
+                ),
                 ElevatedButton(
                   style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFA01C1C)),
                   onPressed: isLoading ? null : () async {
                     setDialogState(() => isLoading = true);
                     try {
+                      // 1. Panggil API (Async)
                       await context.read<AuthRepository>().updateProfile(
                         nameController.text, 
                         usernameController.text
                       );
-                      if (!mounted) return;
-                      Navigator.pop(context); 
+                      
+                      // 2. CEK MOUNTED YANG BENAR (Async Gap Fix)
+                      // Gunakan 'builderContext.mounted' karena kita ada di dalam builder dialog
+                      if (!builderContext.mounted) return; 
+
+                      // 3. Gunakan context yang sudah dipastikan aman
+                      Navigator.pop(builderContext); 
                       _refreshProfile(); 
-                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Profil berhasil diperbarui")));
+                      
+                      // Cek lagi mounted untuk context utama (untuk snackbar)
+                      if (!mounted) return;
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text("Profil berhasil diperbarui"))
+                      );
                     } catch (e) {
-                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: $e"), backgroundColor: Colors.red));
+                      // Pastikan dialog masih ada sebelum menampilkan error di dalamnya (opsional)
+                      // Atau gunakan context utama untuk snackbar
+                      if (!mounted) return; 
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text("Error: $e"), backgroundColor: Colors.red)
+                      );
                     } finally {
-                      setDialogState(() => isLoading = false);
+                      // Cek mounted sebelum setState (setDialogState) pada dialog
+                      // Hanya jalankan jika dialog belum ditutup
+                      if (builderContext.mounted) {
+                        setDialogState(() => isLoading = false);
+                      }
                     }
                   },
                   child: isLoading 
@@ -96,9 +118,9 @@ class _AccountTabState extends State<AccountTab> {
 
     showDialog(
       context: context,
-      builder: (context) {
+      builder: (dialogContext) { // Renamed to dialogContext
         return StatefulBuilder(
-          builder: (context, setDialogState) {
+          builder: (builderContext, setDialogState) { // Renamed to builderContext
             return AlertDialog(
               title: const Text("Ganti Password"),
               content: Column(
@@ -130,7 +152,10 @@ class _AccountTabState extends State<AccountTab> {
                 ],
               ),
               actions: [
-                TextButton(onPressed: () => Navigator.pop(context), child: const Text("Batal")),
+                TextButton(
+                  onPressed: () => Navigator.pop(dialogContext), 
+                  child: const Text("Batal")
+                ),
                 ElevatedButton(
                   style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFA01C1C)),
                   onPressed: isLoading ? null : () async {
@@ -140,13 +165,26 @@ class _AccountTabState extends State<AccountTab> {
                         oldPassController.text, 
                         newPassController.text
                       );
+                      
+                      // PERBAIKAN: Gunakan builderContext.mounted
+                      if (!builderContext.mounted) return;
+
+                      Navigator.pop(builderContext);
+                      
+                      // Gunakan context utama (AccountTab) untuk snackbar
                       if (!mounted) return;
-                      Navigator.pop(context);
-                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Password berhasil diubah")));
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text("Password berhasil diubah"))
+                      );
                     } catch (e) {
-                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Gagal: $e"), backgroundColor: Colors.red));
+                      if (!mounted) return;
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text("Gagal: $e"), backgroundColor: Colors.red)
+                      );
                     } finally {
-                      setDialogState(() => isLoading = false);
+                      if (builderContext.mounted) {
+                        setDialogState(() => isLoading = false);
+                      }
                     }
                   },
                   child: isLoading 
@@ -184,12 +222,7 @@ class _AccountTabState extends State<AccountTab> {
           final userData = snapshot.data!;
           final name = userData['name'] ?? 'User';
           final username = userData['username'] ?? '-';
-          
-          // 1. AMBIL ROLE DARI DATA
-          // Pastikan key JSON dari backend adalah 'role', sesuaikan jika berbeda.
           final role = userData['role'] ?? 'user'; 
-          
-          // 2. CEK APAKAH USER ADALAH HOST
           final isHost = role == 'host'; 
 
           return SingleChildScrollView(
@@ -213,7 +246,6 @@ class _AccountTabState extends State<AccountTab> {
                       const SizedBox(height: 15),
                       Text(name, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.white)),
                       Text("@$username", style: const TextStyle(color: Colors.white70)),
-                      // Optional: Tampilkan badge role agar jelas
                       const SizedBox(height: 5),
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
@@ -234,29 +266,21 @@ class _AccountTabState extends State<AccountTab> {
                   padding: const EdgeInsets.symmetric(horizontal: 20),
                   child: Column(
                     children: [
-                      
-                      // 3. TAMPILKAN MENU HANYA JIKA ROLE == HOST
                       if (isHost) ...[
-                        // Tombol Edit Profil
                         _buildMenuTile(
                           icon: Icons.edit,
                           title: "Edit Profil",
                           onTap: () => _showEditProfileDialog(name, username),
                         ),
-                        
                         const SizedBox(height: 10),
-
-                        // Tombol Ganti Password
                         _buildMenuTile(
                           icon: Icons.lock_reset,
                           title: "Ganti Password",
                           onTap: _showChangePasswordDialog,
                         ),
-
                         const SizedBox(height: 10),
                       ],
 
-                      // Tombol Logout (Semua role bisa logout)
                       _buildMenuTile(
                         icon: Icons.logout,
                         title: "Logout",

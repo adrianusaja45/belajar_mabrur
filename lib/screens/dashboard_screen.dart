@@ -1,9 +1,11 @@
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import '../repositories/auth_repository.dart'; // Import Repo untuk akses getGroupId
-import '../bloc/dashboard_cubit.dart';
-import '../bloc/auth_bloc.dart';
+// IMPORT PATH DIPERBAIKI SESUAI STRUKTUR BARU
+import '../data/repositories/auth_repository.dart'; 
+import '../logic/dashboard/dashboard_cubit.dart'; // Import State Management
+import '../logic/dashboard/dashboard_state.dart';
+import '../logic/auth/auth_bloc.dart';
 import 'home_tab.dart';
 import 'account_tab.dart';
 import 'join_tab.dart'; 
@@ -15,12 +17,10 @@ class DashboardScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // PENTING: BlocProvider DIHAPUS agar menggunakan instansi global dari main.dart
     return BlocListener<AuthBloc, AuthState>(
-      // Tambahkan 'async' agar bisa mengambil data Group ID dari repository
       listener: (context, state) async {
         
-        // 1. LOGIKA REDIRECT KE LOGIN JIKA LOGOUT
+        // 1. Redirect jika Logout
         if (state is AuthInitial) {
           Navigator.pushAndRemoveUntil(
             context,
@@ -29,29 +29,16 @@ class DashboardScreen extends StatelessWidget {
           );
         }
 
-        // 2. LOGIKA AUTO-SUBSCRIBE DINAMIS BERDASARKAN GROUP
+        // 2. Logic Subscribe FCM Dinamis
         if (state is AuthSuccess) {
-          if (state.role == 'host') {
-            // Ambil Group ID dari Repository (Local Storage)
-            final authRepo = context.read<AuthRepository>();
-            String groupId = await authRepo.getGroupId();
-            
-            // Buat Nama Topik Dinamis
-            String groupTopic = "sos_group_$groupId";
+          final authRepo = context.read<AuthRepository>();
+          String groupId = await authRepo.getGroupId();
+          String groupTopic = "sos_group_$groupId";
 
-            // Subscribe ke Topik Grup Spesifik
+          if (state.role == 'host') {
             await FirebaseMessaging.instance.subscribeToTopic(groupTopic);
             debugPrint("Dashboard: Host Subscribed ke topik: $groupTopic");
-            
-            // Opsional: Unsubscribe dari role_host global jika tidak dipakai lagi
-            // FirebaseMessaging.instance.unsubscribeFromTopic("role_host");
           } else {
-            // Jika user biasa, pastikan tidak subscribe (atau unsubscribe jika perlu)
-            // User biasa mengirim ke topik, tidak perlu mendengar (kecuali fitur chat grup)
-            final authRepo = context.read<AuthRepository>();
-            String groupId = await authRepo.getGroupId();
-            String groupTopic = "sos_group_$groupId";
-            
             await FirebaseMessaging.instance.unsubscribeFromTopic(groupTopic);
             debugPrint("Dashboard: User Unsubscribed dari topik: $groupTopic");
           }
@@ -89,11 +76,7 @@ class DashboardScreen extends StatelessWidget {
                 showUnselectedLabels: true,
                 items: const [
                   BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
-                  BottomNavigationBarItem(
-                    icon: Icon(Icons.map_outlined),
-                    activeIcon: Icon(Icons.map_sharp),
-                    label: 'SOS Map',
-                  ),
+                  BottomNavigationBarItem(icon: Icon(Icons.map_outlined), label: 'SOS Map'),
                   BottomNavigationBarItem(icon: Icon(Icons.video_call), label: 'Meet'),
                   BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Account'),
                 ],

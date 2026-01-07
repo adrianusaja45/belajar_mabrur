@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:uuid/uuid.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:shared_preferences/shared_preferences.dart'; 
-import 'package:belajar_mabrur/repositories/auth_repository.dart';
+import 'package:belajar_mabrur/data/repositories/auth_repository.dart';
 import 'video_conference_screen.dart'; 
 
 class JoinTab extends StatefulWidget {
@@ -106,7 +106,7 @@ class _JoinTabState extends State<JoinTab> {
                     title: const Text("Buka sebagai Host?", style: TextStyle(fontWeight: FontWeight.bold)),
                     subtitle: Text(_isHost ? "Anda akan membuat room baru" : "Masuk sebagai peserta"),
                     value: _isHost,
-                    activeColor: const Color(0xFFA01C1C),
+                    activeThumbColor: const Color(0xFFA01C1C),
                     onChanged: (val) => setState(() => _isHost = val),
                   )
                 else

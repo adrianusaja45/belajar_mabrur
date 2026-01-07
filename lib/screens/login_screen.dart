@@ -1,8 +1,8 @@
-import 'package:belajar_mabrur/repositories/auth_repository.dart';
+import 'package:belajar_mabrur/data/repositories/auth_repository.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import '../bloc/auth_bloc.dart';
+import '../logic/auth/auth_bloc.dart';
 import 'register_screen.dart';
 import 'dashboard_screen.dart'; 
 
@@ -23,30 +23,34 @@ class _LoginScreenState extends State<LoginScreen> {
     return Scaffold(
       body: SafeArea(
         child: BlocConsumer<AuthBloc, AuthState>(
-          listener: (context, state) async{
+          listener: (context, state) async {
             if (state is AuthSuccess) {
               
-              // --- LOGIKA GROUP-BASED FCM (UPDATED) ---
-              // Ambil group ID dari repository (atau state jika Anda menambahkannya ke AuthState)
+              // 1. Ambil Repo (Synchronous - Aman)
               final authRepo = context.read<AuthRepository>();
+              
+              // 2. Operasi Async (Menimbulkan Gap)
               final groupId = await authRepo.getGroupId();
               
-              // Nama topik dinamis berdasarkan Group ID
-              // Contoh: sos_group_1, sos_group_A, sos_group_default
+              // 3. CEK CONTEXT.MOUNTED (Perbaikan Utama)
+              // Pastikan context masih valid setelah await selesai
+              if (!context.mounted) return;
+              
+              // Nama topik dinamis
               final topicName = "sos_group_$groupId"; 
 
               if (state.role == 'host') {
-                // Host subscribe ke topik grupnya untuk menerima SOS dari user grup tsb
-                FirebaseMessaging.instance.subscribeToTopic(topicName);
+                await FirebaseMessaging.instance.subscribeToTopic(topicName);
                 debugPrint("HOST: Subscribed ke topik $topicName");
-                
-                // Opsional: Unsubscribe dari topik lama jika user pindah grup/akun
-                // (Membutuhkan logika penyimpanan topik lama, untuk simpelnya kita asumsikan 1 device 1 user)
               } else {
-                // User biasa tidak perlu dengar SOS, jadi unsubscribe (untuk jaga-jaga)
-                FirebaseMessaging.instance.unsubscribeFromTopic(topicName);
+                await FirebaseMessaging.instance.unsubscribeFromTopic(topicName);
                 debugPrint("USER: Unsubscribed dari topik $topicName");
               }
+
+              // Karena ada await lagi di atas (Firebase), cek mounted lagi jika paranoid,
+              // tapi biasanya context.mounted sebelumnya sudah cukup untuk memutus flow jika widget mati.
+              // Namun untuk strict linting:
+              if (!context.mounted) return;
 
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(content: Text(state.message), backgroundColor: Colors.green),

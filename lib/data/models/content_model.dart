@@ -17,6 +17,7 @@ class ContentModel {
     required this.description,
   });
 
+  /// Factory method untuk mengubah JSON dari API menjadi Object Dart.
   factory ContentModel.fromJson(Map<String, dynamic> json) {
     return ContentModel(
       id: json['id'],

@@ -1,8 +1,9 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:equatable/equatable.dart';
-import '../repositories/auth_repository.dart';
+import '../../data/repositories/auth_repository.dart';
 
+// Menghubungkan file part agar bisa saling akses private variable/class
 part 'auth_event.dart';
 part 'auth_state.dart';
 
@@ -11,24 +12,25 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
 
   AuthBloc({required this.authRepository}) : super(AuthInitial()) {
     
-    // LOGIN
+    // --- HANDLER: LOGIN ---
     on<LoginRequested>((event, emit) async {
-      emit(AuthLoading());
+      emit(AuthLoading()); // Ubah UI jadi loading
       try {
+        // Panggil Repository dengan timeout 10 detik
         final result = await authRepository.login(event.username, event.password).timeout(
           const Duration(seconds: 10),
           onTimeout: () => throw Exception("Server tidak merespons. Cek koneksi Anda."),
         );
         
         final String role = result['data']['user']['role'] ?? 'user';
-        // Login tetap pakai AuthSuccess
+        // Emit Sukses dengan membawa Role user
         emit(AuthSuccess("Login Berhasil!", role: role));
       } catch (e) {
         emit(AuthFailure(e.toString()));
       }
     });
 
-    // REGISTER
+    // --- HANDLER: REGISTER ---
     on<RegisterRequested>((event, emit) async {
       emit(AuthLoading());
       try {
@@ -37,37 +39,39 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
           onTimeout: () => throw Exception("Gagal mendaftar. Silakan coba lagi."),
         );
         
-        // [UBAH DISINI] Gunakan RegisterSuccess, bukan AuthSuccess
+        // Emit RegisterSuccess (UI akan arahkan ke Login, bukan Dashboard)
         emit(const RegisterSuccess("Registrasi Berhasil, Silakan Login"));
       } catch (e) {
         emit(AuthFailure(e.toString()));
       }
     });
 
-    // CHECK AUTH
+    // --- HANDLER: CEK STATUS (AUTO LOGIN) ---
     on<CheckAuthStatus>((event, emit) async {
       try {
         final hasToken = await authRepository.hasToken();
         if (hasToken) {
+          // Jika token ada, ambil profil terbaru untuk cek Role & Group ID
           final profile = await authRepository.getProfile().timeout(
             const Duration(seconds: 5),
           ); 
           final String role = profile['role'] ?? 'user';
           emit(AuthSuccess("Selamat Datang Kembali", role: role));
         } else {
+          // Token tidak ada, user harus login manual
           emit(AuthInitial());
         }
       } catch (e) {
         debugPrint("Auto-login error: $e");
+        // Jika token expired atau error, kembalikan ke Initial (Login Screen)
         emit(AuthInitial()); 
       }
     });
 
-    // LOGOUT
+    // --- HANDLER: LOGOUT ---
     on<LogoutRequested>((event, emit) async {
       await authRepository.logout();
-      emit(AuthInitial());
+      emit(AuthInitial()); // UI akan redirect ke Login Screen
     });
-
   }
 }
