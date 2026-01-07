@@ -2,7 +2,7 @@ plugins {
     id("com.android.application")
     id("kotlin-android")
     id("dev.flutter.flutter-gradle-plugin")
-    id("com.google.gms.google-services") 
+    id("com.google.gms.google-services")
 }
 
 android {
@@ -22,16 +22,22 @@ android {
 
     defaultConfig {
         applicationId = "com.example.belajar_mabrur"
-        minSdk = flutter.minSdkVersion 
+        minSdk = flutter.minSdkVersion
         targetSdk = 36
-        multiDexEnabled = true
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+        multiDexEnabled = true
+
+        // --- [FIXED] KONFIGURASI NDK UNTUK KOTLIN DSL ---
+        ndk {
+            // Gunakan .add() untuk Kotlin, bukan spasi langsung
+            abiFilters.add("arm64-v8a")
+        }
     }
 
     buildTypes {
         release {
-            isMinifyEnabled = false 
+            isMinifyEnabled = false
             isShrinkResources = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
@@ -41,18 +47,16 @@ android {
         }
     }
 
-    // --- SKRIP GANTI NAMA APK (FIXED) ---
+    // --- [FIXED] SKRIP GANTI NAMA APK (VERSI KOTLIN DSL) ---
     applicationVariants.all {
         val variant = this
         variant.outputs
             .map { it as com.android.build.gradle.internal.api.BaseVariantOutputImpl }
             .forEach { output ->
-                // Hanya ubah nama jika ini adalah versi RELEASE
                 if (variant.buildType.name == "release") {
-                    val newName = "Belajar Mabrur.apk"
+                    val newName = "Belajar Mabrur-arm64.apk"
                     output.outputFileName = newName
-                    // Log ini akan muncul di terminal saat build
-                    println(">> Mengubah nama APK menjadi: $newName") 
+                    println(">> Mengubah nama APK menjadi: $newName")
                 }
             }
     }
