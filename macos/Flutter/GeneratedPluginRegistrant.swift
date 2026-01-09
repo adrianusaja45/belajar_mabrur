@@ -19,6 +19,7 @@ import shared_preferences_foundation
 import sqflite_darwin
 import wakelock_plus
 import zego_express_engine
+import zego_zim
 
 func RegisterGeneratedPlugins(registry: FlutterPluginRegistry) {
   ConnectivityPlusPlugin.register(with: registry.registrar(forPlugin: "ConnectivityPlusPlugin"))
@@ -35,4 +36,5 @@ func RegisterGeneratedPlugins(registry: FlutterPluginRegistry) {
   SqflitePlugin.register(with: registry.registrar(forPlugin: "SqflitePlugin"))
   WakelockPlusMacosPlugin.register(with: registry.registrar(forPlugin: "WakelockPlusMacosPlugin"))
   ZegoExpressEnginePlugin.register(with: registry.registrar(forPlugin: "ZegoExpressEnginePlugin"))
+  ZegoZimPlugin.register(with: registry.registrar(forPlugin: "ZegoZimPlugin"))
 }

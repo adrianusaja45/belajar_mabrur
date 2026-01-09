@@ -23,6 +23,9 @@ import 'logic/dashboard/dashboard_cubit.dart';
 import 'screens/splash_screen.dart';
 import 'screens/map_sos_tab.dart'; 
 
+// --- IMPORT AUDIO ROOM SCREEN (untuk route restore dari PIP) ---
+import 'screens/audio_room/audio_room_screen.dart';
+
 // Global Key untuk Navigasi (Agar bisa buka modal dari notifikasi background)
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
@@ -216,6 +219,20 @@ class _MyAppState extends State<MyApp> {
           navigatorKey: navigatorKey,
           debugShowCheckedModeBanner: false,
           
+          // --- REGISTER ROUTES (PIP / Restore Audio Room) ---
+          routes: {
+            '/audioRoom': (ctx) {
+              final args = ModalRoute.of(ctx)!.settings.arguments as Map<String, dynamic>;
+              return AudioRoomScreen(
+                roomID: args['roomID'],
+                userID: args['userID'],
+                displayName: args['displayName'],
+                hostUserID: args['hostUserID'],
+                isHost: args['isHost'] ?? false,
+              );
+            },
+          },
+
           // --- GLOBAL THEME CONFIGURATION ---
           theme: ThemeData(
             useMaterial3: true,

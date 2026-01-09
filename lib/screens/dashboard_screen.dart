@@ -1,3 +1,4 @@
+import 'package:belajar_mabrur/screens/home_tab.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -6,8 +7,9 @@ import '../data/repositories/auth_repository.dart';
 import '../logic/dashboard/dashboard_cubit.dart'; // Import State Management
 import '../logic/dashboard/dashboard_state.dart';
 import '../logic/auth/auth_bloc.dart';
-import 'home_tab.dart';
+
 import 'account_tab.dart';
+import 'audio_room/audio_room_controller.dart';
 import 'join_tab.dart'; 
 import 'map_sos_tab.dart';
 import 'login_screen.dart';
@@ -22,6 +24,11 @@ class DashboardScreen extends StatelessWidget {
         
         // 1. Redirect jika Logout
         if (state is AuthInitial) {
+          // CLEANUP: End Audio Room session jika ada
+          if (AudioRoomController.instance.roomID != null) {
+            AudioRoomController.instance.leaveRoom();
+          }
+
           Navigator.pushAndRemoveUntil(
             context,
             MaterialPageRoute(builder: (context) => const LoginScreen()),
@@ -46,7 +53,7 @@ class DashboardScreen extends StatelessWidget {
       },
       child: Scaffold(
         body: BlocBuilder<DashboardCubit, DashboardState>(
-          builder: (context, state) {
+          builder:  (context, state) {
             return IndexedStack(
               index: state.tabIndex,
               children: [
@@ -59,10 +66,10 @@ class DashboardScreen extends StatelessWidget {
           },
         ),
         bottomNavigationBar: BlocBuilder<DashboardCubit, DashboardState>(
-          builder: (context, state) {
+          builder:  (context, state) {
             return Container(
               decoration: const BoxDecoration(
-                border: Border(top: BorderSide(color: Colors.black12, width: 0.5)),
+                border:  Border(top: BorderSide(color: Colors.black12, width: 0.5)),
               ),
               child: BottomNavigationBar(
                 currentIndex: state.tabIndex,
