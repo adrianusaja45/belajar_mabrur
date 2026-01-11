@@ -2,16 +2,17 @@ import 'package:flutter/material.dart';
 
 class AppConstants {
   // --- KONFIGURASI WARNA (HEX) ---
-  
+
   // Warna Utama (Merah Albirr)
   static const Color primaryColor = Color(0xFFA01C1C);
-  
+
   // Warna Aksen/Secondary (Bisa disamakan atau dibedakan)
   static const Color secondaryColor = Color(0xFFA01C1C);
 
   // Warna Background
   static const Color backgroundColor = Colors.white;
-  static const Color surfaceColor = Color(0xFFF5F5F5); // Abu-abu sangat muda untuk Card
+  static const Color surfaceColor =
+      Color(0xFFF5F5F5); // Abu-abu sangat muda untuk Card
 
   // Warna Text
   static const Color textPrimary = Colors.black87;
@@ -25,5 +26,6 @@ class AppConstants {
 
   // --- ZEGO CLOUD CONFIG ---
   static const int zegoAppID = 1693455749;
-  static const String zegoAppSign = "7788285c1340e7587298498be7f43d43e376b911688f8b984d8fe74f95bff6a5";
+  static const String zegoAppSign =
+      "7788285c1340e7587298498be7f43d43e376b911688f8b984d8fe74f95bff6a5";
 }

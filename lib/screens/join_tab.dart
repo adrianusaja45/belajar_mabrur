@@ -35,7 +35,7 @@ class _JoinTabState extends State<JoinTab> {
   }
 
   Future<void> _initializeUser() async {
-    if (! mounted) return;
+    if (!  mounted) return;
     setState(() => _isLoading = true);
     
     try {
@@ -47,8 +47,8 @@ class _JoinTabState extends State<JoinTab> {
       if (mounted) {
         setState(() {
           _userName = userProfile['name'] ?? 'User';
-          _userID = userProfile['id']?. toString() ?? '';
-          _userRole = userProfile['role'] ??  'user'; 
+          _userID = userProfile['id']?.toString() ?? '';
+          _userRole = userProfile['role'] ?? 'user'; 
           if (_userRole != 'host') _isHost = false;
           _isLoading = false;
         });
@@ -56,7 +56,7 @@ class _JoinTabState extends State<JoinTab> {
     } catch (e) {
       debugPrint("Error profile di JoinTab: $e");
       
-      final prefs = await SharedPreferences. getInstance();
+      final prefs = await SharedPreferences.  getInstance();
       if (mounted) {
         setState(() {
           _userID = prefs.getString('saved_user_id') ?? const Uuid().v4().replaceAll('-', '');
@@ -106,7 +106,7 @@ class _JoinTabState extends State<JoinTab> {
                 if (_userRole == 'host') 
                   SwitchListTile(
                     title: const Text("Buka sebagai Host? ", style: TextStyle(fontWeight: FontWeight.bold)),
-                    subtitle: Text(_isHost ? "Anda akan membuat room baru" : "Masuk sebagai peserta"),
+                    subtitle: Text(_isHost ?  "Anda akan membuat room baru" : "Masuk sebagai peserta"),
                     value: _isHost,
                     activeThumbColor: const Color(0xFFA01C1C),
                     onChanged: (val) => setState(() => _isHost = val),
@@ -141,8 +141,8 @@ class _JoinTabState extends State<JoinTab> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
             decoration: BoxDecoration(
-              color: _userRole == 'host' ? const Color(0xFFA01C1C) : Colors.blueGrey,
-              borderRadius: BorderRadius. circular(20)
+              color: _userRole == 'host' ?  const Color(0xFFA01C1C) : Colors.blueGrey,
+              borderRadius: BorderRadius.circular(20)
             ),
             child: Text(_userRole. toUpperCase(), style: const TextStyle(color: Colors.white, fontSize: 10)),
           )
@@ -171,12 +171,12 @@ class _JoinTabState extends State<JoinTab> {
                   "🎙️ Audio Room Zego",
                   style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFFA01C1C)),
                 ),
-                const SizedBox(height: 4),
+                const SizedBox(height:  4),
                 Text(
                   _isHost 
                     ? "Sebagai Host, Anda bisa membuat room baru"
-                    : "Sebagai Peserta, tunggu Host membuat room terlebih dahulu",
-                  style: const TextStyle(fontSize: 12, color: Colors. grey),
+                    : "Sebagai Peserta, Anda bisa langsung join room",
+                  style: const TextStyle(fontSize: 12, color: Colors.grey),
                 ),
               ],
             ),
@@ -197,71 +197,36 @@ class _JoinTabState extends State<JoinTab> {
         ),
         onPressed: _joinRoom,
         child: const Text("GABUNG AUDIO ROOM", 
-          style: TextStyle(color: Colors. white, fontWeight: FontWeight. bold)),
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
       ),
     );
   }
 
   void _joinRoom() async {
     if (_roomIDController.text.trim().isEmpty) {
-      ScaffoldMessenger. of(context).showSnackBar(
+      ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("Silakan isi Room ID"))
       );
       return;
     }
 
-    String roomID = _roomIDController.text. trim();
+    String roomID = _roomIDController. text.trim();
     String standardizedHostID = "host_$roomID";
     
     bool isHostUser = _isHost && _userRole == 'host';
-    String myUserID = isHostUser ? standardizedHostID :  _userID;
-    String displayName = _userName. isNotEmpty ? _userName : "User_$roomID";
+    String myUserID = isHostUser ? standardizedHostID : _userID;
+    String displayName = _userName.isNotEmpty ? _userName :  "User_$roomID";
 
-    // VALIDASI:  Jika bukan host, check apakah room sudah dibuat oleh host
-    if (!isHostUser) {
+    // HANYA SIMPAN FLAG JIKA ADALAH HOST (untuk tracking end room)
+    if (isHostUser) {
       final prefs = await SharedPreferences. getInstance();
-      final roomCreatedKey = 'room_${roomID}_created';
-      final roomHostKey = 'room_${roomID}_host';
-      
-      bool roomCreated = prefs.getBool(roomCreatedKey) ?? false;
-      String?  hostName = prefs.getString(roomHostKey);
-
-      if (!roomCreated) {
-        // Room belum dibuat oleh host
-        if (! mounted) return;
-        
-        showDialog(
-          context: context,
-          builder: (ctx) => AlertDialog(
-            icon: const Icon(Icons.error, color: Colors.red, size: 40),
-            title: const Text("Room Tidak Tersedia"),
-            content: Text(
-              "Room ID $roomID belum dibuat oleh Host.\n\n"
-              "Silakan minta Host untuk membuat room terlebih dahulu."
-            ),
-            actions: [
-              ElevatedButton(
-                onPressed: () => Navigator.pop(ctx),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFFA01C1C),
-                ),
-                child: const Text("OK", style: TextStyle(color:  Colors.white)),
-              ),
-            ],
-          ),
-        );
-        return;
-      }
-
-      // Room sudah ada, lanjut masuk
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Bergabung dengan room yang dibuat oleh $hostName")),
-      );
+      await prefs. setBool('room_${roomID}_created', true);
+      await prefs.setString('room_${roomID}_host', displayName);
+      debugPrint('Host created room $roomID');
     }
 
-    // Navigate ke Audio Room Screen
-    if (! mounted) return;
+    // Navigate ke Audio Room Screen (tanpa validasi)
+    if (!mounted) return;
     Navigator. push(
       context,
       MaterialPageRoute(
