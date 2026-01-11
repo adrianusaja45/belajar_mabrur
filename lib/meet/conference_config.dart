@@ -31,16 +31,19 @@ class ConferenceConfig {
       ZegoLiveAudioRoomMenuBarButtonName.toggleMicrophoneButton,
       ZegoLiveAudioRoomMenuBarButtonName.showMemberListButton,
       ZegoLiveAudioRoomMenuBarButtonName.closeSeatButton,
+      ZegoLiveAudioRoomMenuBarButtonName.leaveButton,
     ];
 
     config.bottomMenuBar. speakerButtons = const [
       ZegoLiveAudioRoomMenuBarButtonName.toggleMicrophoneButton,
       ZegoLiveAudioRoomMenuBarButtonName. showMemberListButton,
+      ZegoLiveAudioRoomMenuBarButtonName.leaveButton,
     ];
 
     config.bottomMenuBar. audienceButtons = const [
       ZegoLiveAudioRoomMenuBarButtonName.applyToTakeSeatButton,
       ZegoLiveAudioRoomMenuBarButtonName.showMemberListButton,
+      ZegoLiveAudioRoomMenuBarButtonName.leaveButton,
     ];
 
     // Background

@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart'; // Untuk Clipboard
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:zego_uikit_prebuilt_live_audio_room/zego_uikit_prebuilt_live_audio_room.dart';
-
+import 'package:belajar_mabrur/main.dart';
 import '../../core/constants.dart';
 import '../../meet/conference_config.dart';
 
@@ -146,115 +146,119 @@ class _AudioRoomScreenState extends State<AudioRoomScreen> {
   @override
   Widget build(BuildContext context) {
     return Stack(
-    children: [
-      ZegoUIKitPrebuiltLiveAudioRoom(
-        appID: AppConstants.zegoAppID,
-        appSign: AppConstants.zegoAppSign,
-        roomID: widget.roomID,
-        userID: widget.userID,
-        userName: widget.displayName,
-        config: ConferenceConfig. get(
-          context: context,
-          isHost: widget.isHost,
-          hostUserID: widget. hostUserID,
-          currentUserID: widget. userID,
-          roomID: widget. roomID,
-        ),
-        events: ZegoUIKitPrebuiltLiveAudioRoomEvents(
-          onLeaveConfirmation:  (event, defaultAction) async {
-            debugPrint('onLeaveConfirmation triggered');
+      children: [
+        ZegoUIKitPrebuiltLiveAudioRoom(
+          appID: AppConstants.zegoAppID,
+          appSign: AppConstants.zegoAppSign,
+          roomID: widget.roomID,
+          userID: widget.userID,
+          userName: widget.displayName,
+          config: ConferenceConfig.get(
+            context: context,
+            isHost: widget.isHost,
+            hostUserID: widget.hostUserID,
+            currentUserID: widget.userID,
+            roomID: widget.roomID,
+          ),
+          events: ZegoUIKitPrebuiltLiveAudioRoomEvents(
+            onLeaveConfirmation: (event, defaultAction) async {
+              debugPrint('onLeaveConfirmation triggered');
 
-            if (widget.isHost) {
-              return await _hostLeaveDialog(context);
-            } else {
-              return await _userLeaveDialog(context);
-            }
-          },
-          user: ZegoLiveAudioRoomUserEvents(
-            onLeave: (user) {
-              if (user.id == widget.hostUserID && ! widget.isHost) {
-                if (! mounted) return;
-                ScaffoldMessenger. of(context).showSnackBar(
-                  const SnackBar(
-                    content:  Text("Host telah mengakhiri room. "),
-                  ),
-                );
-                Navigator.pop(context);
+              // --- PERBAIKAN DI SINI ---
+              // Gunakan context dari navigatorKey global.
+              // Jika null (jarang terjadi), fallback ke context lokal.
+              final validContext = navigatorKey.currentContext ?? context;
+
+              if (widget.isHost) {
+                return await _hostLeaveDialog(validContext);
+              } else {
+                return await _userLeaveDialog(validContext);
               }
             },
+            user: ZegoLiveAudioRoomUserEvents(
+              onLeave: (user) {
+                if (user.id == widget.hostUserID && !widget.isHost) {
+                  if (!mounted) return;
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text("Host telah mengakhiri room. "),
+                    ),
+                  );
+                  Navigator.pop(context);
+                }
+              },
+            ),
           ),
         ),
-      ),
 
-          // ============================================
-          // ROOM INFO OVERLAY (Room ID Badge)
-          // ============================================
-          // ============================================
+        // ============================================
+        // ROOM INFO OVERLAY (Room ID Badge)
+        // ============================================
+        // ============================================
 // ROOM INFO OVERLAY (Room ID & Role Badge)
 // ============================================
-          Positioned(
-            top: 0,
-            left: 0,
-            right: 0,
-            child: SafeArea(
-              child: Padding(
-                padding: const EdgeInsets.only(
-                  left: 16,
-                  right: 16,
-                  top:
-                      50, // Tambah margin atas agar tidak bertabrakan dengan tombol Zego
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    // ROOM INFO BADGE
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 12, vertical: 8),
-                      decoration: BoxDecoration(
-                        color: Colors.black.withOpacity(0.6),
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            'Room ID: ${widget.roomID}',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                              decoration: TextDecoration.none,
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          GestureDetector(
-                            onTap: () {
-                              Clipboard.setData(
-                                  ClipboardData(text: widget.roomID));
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text('Room ID disalin! '),
-                                  duration: Duration(seconds: 1),
-                                ),
-                              );
-                            },
-                            child: const Icon(
-                              Icons.copy,
-                              color: Colors.white70,
-                              size: 14,
-                            ),
-                          ),
-                        ],
-                      ),
+        Positioned(
+          top: 0,
+          left: 0,
+          right: 0,
+          child: SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.only(
+                left: 16,
+                right: 16,
+                top:
+                    50, // Tambah margin atas agar tidak bertabrakan dengan tombol Zego
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  // ROOM INFO BADGE
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withOpacity(0.6),
+                      borderRadius: BorderRadius.circular(20),
                     ),
-                  ],
-                ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          'Room ID: ${widget.roomID}',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            decoration: TextDecoration.none,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        GestureDetector(
+                          onTap: () {
+                            Clipboard.setData(
+                                ClipboardData(text: widget.roomID));
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Room ID disalin! '),
+                                duration: Duration(seconds: 1),
+                              ),
+                            );
+                          },
+                          child: const Icon(
+                            Icons.copy,
+                            color: Colors.white70,
+                            size: 14,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
-        ],
-      );
-    
+        ),
+      ],
+    );
   }
 }
