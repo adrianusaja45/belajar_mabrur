@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:shared_preferences/shared_preferences.dart'; 
@@ -20,7 +19,7 @@ class _JoinTabState extends State<JoinTab> {
   String _userID = ''; 
   String _userRole = ''; 
   bool _isLoading = true;
-  bool _isHost = false;
+  bool _isHost = false; // Default awal tetap false
 
   @override
   void initState() {
@@ -34,8 +33,9 @@ class _JoinTabState extends State<JoinTab> {
     super.dispose();
   }
 
+  // --- BAGIAN INI YANG DIUBAH ---
   Future<void> _initializeUser() async {
-    if (!  mounted) return;
+    if (!mounted) return;
     setState(() => _isLoading = true);
     
     try {
@@ -49,23 +49,33 @@ class _JoinTabState extends State<JoinTab> {
           _userName = userProfile['name'] ?? 'User';
           _userID = userProfile['id']?.toString() ?? '';
           _userRole = userProfile['role'] ?? 'user'; 
-          if (_userRole != 'host') _isHost = false;
+          
+          // LOGIKA BARU:
+          // Jika role adalah host, otomatis set _isHost jadi true (Switch ON)
+          // Jika bukan host, _isHost jadi false.
+          _isHost = (_userRole == 'host'); 
+
           _isLoading = false;
         });
       }
     } catch (e) {
       debugPrint("Error profile di JoinTab: $e");
       
-      final prefs = await SharedPreferences.  getInstance();
+      final prefs = await SharedPreferences.getInstance();
       if (mounted) {
         setState(() {
           _userID = prefs.getString('saved_user_id') ?? const Uuid().v4().replaceAll('-', '');
           _userRole = prefs.getString('user_role') ?? 'user';
+          
+          // Terapkan logika yang sama saat ambil dari cache/local storage
+          _isHost = (_userRole == 'host');
+
           _isLoading = false; 
         });
       }
     }
   }
+  // --------------------------------
 
   @override
   Widget build(BuildContext context) {
@@ -94,7 +104,7 @@ class _JoinTabState extends State<JoinTab> {
                 
                 TextField(
                   controller: _roomIDController,
-                  decoration:  InputDecoration(
+                  decoration: InputDecoration(
                     labelText: "Masukkan Room ID",
                     hintText: "Contoh: 112",
                     border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
@@ -103,11 +113,13 @@ class _JoinTabState extends State<JoinTab> {
                   keyboardType: TextInputType.number,
                 ),
                 const SizedBox(height: 10),
+                
+                // Switch ini akan muncul ON jika _userRole == 'host' karena _isHost sudah diset true di atas
                 if (_userRole == 'host') 
                   SwitchListTile(
                     title: const Text("Buka sebagai Host? ", style: TextStyle(fontWeight: FontWeight.bold)),
-                    subtitle: Text(_isHost ?  "Anda akan membuat room baru" : "Masuk sebagai peserta"),
-                    value: _isHost,
+                    subtitle: Text(_isHost ? "Anda akan membuat room baru" : "Masuk sebagai peserta"),
+                    value: _isHost, 
                     activeThumbColor: const Color(0xFFA01C1C),
                     onChanged: (val) => setState(() => _isHost = val),
                   )
@@ -127,6 +139,8 @@ class _JoinTabState extends State<JoinTab> {
     );
   }
 
+  // ... (Sisa fungsi _buildUserCard, _buildInfoCard, _buildJoinButton, _joinRoom tetap sama)
+  
   Widget _buildUserCard() {
     return Container(
       padding: const EdgeInsets.all(15),
@@ -136,15 +150,15 @@ class _JoinTabState extends State<JoinTab> {
         children: [
           const Icon(Icons.account_circle, color: Colors.grey),
           const SizedBox(width: 10),
-          Text(_userName. isNotEmpty ? _userName : "User", style: const TextStyle(fontWeight: FontWeight.bold)),
-          const SizedBox(width:  10),
+          Text(_userName.isNotEmpty ? _userName : "User", style: const TextStyle(fontWeight: FontWeight.bold)),
+          const SizedBox(width: 10),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
             decoration: BoxDecoration(
-              color: _userRole == 'host' ?  const Color(0xFFA01C1C) : Colors.blueGrey,
+              color: _userRole == 'host' ? const Color(0xFFA01C1C) : Colors.blueGrey,
               borderRadius: BorderRadius.circular(20)
             ),
-            child: Text(_userRole. toUpperCase(), style: const TextStyle(color: Colors.white, fontSize: 10)),
+            child: Text(_userRole.toUpperCase(), style: const TextStyle(color: Colors.white, fontSize: 10)),
           )
         ],
       ),
@@ -171,7 +185,7 @@ class _JoinTabState extends State<JoinTab> {
                   "🎙️ Audio Room Zego",
                   style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFFA01C1C)),
                 ),
-                const SizedBox(height:  4),
+                const SizedBox(height: 4),
                 Text(
                   _isHost 
                     ? "Sebagai Host, Anda bisa membuat room baru"
@@ -190,7 +204,7 @@ class _JoinTabState extends State<JoinTab> {
     return SizedBox(
       width: double.infinity,
       height: 50,
-      child:  ElevatedButton(
+      child: ElevatedButton(
         style: ElevatedButton.styleFrom(
           backgroundColor: const Color(0xFFA01C1C),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -210,31 +224,29 @@ class _JoinTabState extends State<JoinTab> {
       return;
     }
 
-    String roomID = _roomIDController. text.trim();
+    String roomID = _roomIDController.text.trim();
     String standardizedHostID = "host_$roomID";
     
     bool isHostUser = _isHost && _userRole == 'host';
     String myUserID = isHostUser ? standardizedHostID : _userID;
-    String displayName = _userName.isNotEmpty ? _userName :  "User_$roomID";
+    String displayName = _userName.isNotEmpty ? _userName : "User_$roomID";
 
-    // HANYA SIMPAN FLAG JIKA ADALAH HOST (untuk tracking end room)
     if (isHostUser) {
-      final prefs = await SharedPreferences. getInstance();
-      await prefs. setBool('room_${roomID}_created', true);
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool('room_${roomID}_created', true);
       await prefs.setString('room_${roomID}_host', displayName);
       debugPrint('Host created room $roomID');
     }
 
-    // Navigate ke Audio Room Screen (tanpa validasi)
     if (!mounted) return;
-    Navigator. push(
+    Navigator.push(
       context,
       MaterialPageRoute(
-        builder:  (context) => AudioRoomScreen(
+        builder: (context) => AudioRoomScreen(
           roomID: roomID,
           isHost: isHostUser,
           userID: myUserID,
-          displayName:  displayName,
+          displayName: displayName,
           hostUserID: standardizedHostID,
         ),
       ),
