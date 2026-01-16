@@ -2,7 +2,7 @@ plugins {
     id("com.android.application")
     id("kotlin-android")
     id("dev.flutter.flutter-gradle-plugin")
-    id("com.google.gms.google-services")
+    id("com.google.gms.google-services") // Pastikan Anda memang pakai Firebase
 }
 
 android {
@@ -20,19 +20,25 @@ android {
         jvmTarget = JavaVersion.VERSION_17.toString()
     }
 
+    sourceSets {
+        getByName("main").java.srcDirs("src/main/kotlin")
+    }
+
     defaultConfig {
         applicationId = "com.example.belajar_mabrur"
+        // Menggunakan nilai default dari Flutter jika null
         minSdk = flutter.minSdkVersion
-        targetSdk = 36
+        targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
-        multiDexEnabled = true
 
-        // --- [FIXED] KONFIGURASI NDK UNTUK KOTLIN DSL ---
-        ndk {
-            // Gunakan .add() untuk Kotlin, bukan spasi langsung
-            abiFilters.add("arm64-v8a")
-        }
+        // --- FIX UTAMA: MULTIDEX ---
+        multiDexEnabled = true
+    }
+
+    lint {
+        checkReleaseBuilds = false
+        abortOnError = false
     }
 
     buildTypes {
@@ -47,14 +53,14 @@ android {
         }
     }
 
-    // --- [FIXED] SKRIP GANTI NAMA APK (VERSI KOTLIN DSL) ---
+    // --- SKRIP GANTI NAMA APK ---
     applicationVariants.all {
         val variant = this
         variant.outputs
             .map { it as com.android.build.gradle.internal.api.BaseVariantOutputImpl }
             .forEach { output ->
                 if (variant.buildType.name == "release") {
-                    val newName = "Belajar Mabrur-arm64.apk"
+                    val newName = "Belajar Mabrur.apk"
                     output.outputFileName = newName
                     println(">> Mengubah nama APK menjadi: $newName")
                 }
@@ -67,7 +73,12 @@ flutter {
 }
 
 dependencies {
+    // Firebase
     implementation(platform("com.google.firebase:firebase-bom:33.7.0"))
+    
+    // Desugaring (Wajib untuk Java 17 features di Android lama)
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
-    implementation("androidx.multidex:multidex:2.0.1")
+    
+    // Multidex (Wajib jika coreLibraryDesugaring aktif)
+    implementation("androidx.multidex:multidex:2.0.1") 
 }

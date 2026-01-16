@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+
 import 'package:zego_uikit_prebuilt_live_audio_room/zego_uikit_prebuilt_live_audio_room.dart';
 
 import '../../core/constants.dart';
@@ -12,21 +13,27 @@ class ConferenceConfig {
     required String roomID,
   }) {
     final config = isHost
-        ? ZegoUIKitPrebuiltLiveAudioRoomConfig. host()
-        : ZegoUIKitPrebuiltLiveAudioRoomConfig. audience();
+        ? ZegoUIKitPrebuiltLiveAudioRoomConfig.host()
+        : ZegoUIKitPrebuiltLiveAudioRoomConfig.audience();
 
-    // Mic & Speaker
+// Mic & Speaker
+
     config.turnOnMicrophoneWhenJoining = isHost;
+
     config.useSpeakerWhenJoining = true;
 
-    // ============================================
-    // KONFIGURASI MINIMIZE/PIP BAWAAN ZEGO
-    // ============================================
+// ============================================
+
+// KONFIGURASI MINIMIZE/PIP BAWAAN ZEGO
+
+// ============================================
+
     config.topMenuBar.buttons = [
       ZegoLiveAudioRoomMenuBarButtonName.minimizingButton,
     ];
 
-    // Bottom Menu Bar
+// Bottom Menu Bar
+
     config.bottomMenuBar.hostButtons = const [
       ZegoLiveAudioRoomMenuBarButtonName.toggleMicrophoneButton,
       ZegoLiveAudioRoomMenuBarButtonName.showMemberListButton,
@@ -34,33 +41,35 @@ class ConferenceConfig {
       ZegoLiveAudioRoomMenuBarButtonName.leaveButton,
     ];
 
-    config.bottomMenuBar. speakerButtons = const [
+    config.bottomMenuBar.speakerButtons = const [
       ZegoLiveAudioRoomMenuBarButtonName.toggleMicrophoneButton,
-      ZegoLiveAudioRoomMenuBarButtonName. showMemberListButton,
+      ZegoLiveAudioRoomMenuBarButtonName.showMemberListButton,
       ZegoLiveAudioRoomMenuBarButtonName.leaveButton,
     ];
 
-    config.bottomMenuBar. audienceButtons = const [
+    config.bottomMenuBar.audienceButtons = const [
       ZegoLiveAudioRoomMenuBarButtonName.applyToTakeSeatButton,
       ZegoLiveAudioRoomMenuBarButtonName.showMemberListButton,
       ZegoLiveAudioRoomMenuBarButtonName.leaveButton,
     ];
 
-    // Background
+// Background
+
     config.background = Container(
       decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            AppConstants.primaryColor. withOpacity(0.1),
+            AppConstants.primaryColor.withOpacity(0.1),
             AppConstants.primaryColor.withOpacity(0.05),
           ],
         ),
       ),
     );
 
-    // Seat Layout
+// Seat Layout
+
     config.seat.layout = ZegoLiveAudioRoomLayoutConfig(
       rowConfigs: [
         ZegoLiveAudioRoomLayoutRowConfig(count: 3, seatSpacing: 16),
@@ -70,42 +79,46 @@ class ConferenceConfig {
       rowSpacing: 16,
     );
 
-    // Seat Background
+// Seat Background
+
     config.seat.backgroundBuilder = (_, __, ___, ____) {
       return Container(
-        decoration:  BoxDecoration(
+        decoration: BoxDecoration(
           color: AppConstants.surfaceColor,
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: Colors.grey. shade300, width: 1),
-          boxShadow:  [
+          border: Border.all(color: Colors.grey.shade300, width: 1),
+          boxShadow: [
             BoxShadow(
-              color: Colors. black.withOpacity(0.05),
+              color: Colors.black.withOpacity(0.05),
               blurRadius: 4,
-              offset:  const Offset(0, 2),
+              offset: const Offset(0, 2),
             ),
           ],
         ),
       );
     };
 
-    // Avatar Builder
+// Avatar Builder
+
     config.seat.avatarBuilder = (context, size, user, __) {
       if (user == null) return const SizedBox();
 
       final isHostUser = user.id == hostUserID;
-      final avatarRadius = size. shortestSide * 0.28;
-      final hostBadgeSize = size. shortestSide * 0.18;
+
+      final avatarRadius = size.shortestSide * 0.28;
+
+      final hostBadgeSize = size.shortestSide * 0.18;
 
       return Center(
-        child:  Stack(
+        child: Stack(
           alignment: Alignment.center,
-          children:  [
+          children: [
             CircleAvatar(
               radius: avatarRadius,
-              backgroundColor:  AppConstants.primaryColor.withOpacity(0.15),
-              child:  Text(
-                user. name.isNotEmpty ? user. name[0].toUpperCase() : "?",
-                style:  TextStyle(
+              backgroundColor: AppConstants.primaryColor.withOpacity(0.15),
+              child: Text(
+                user.name.isNotEmpty ? user.name[0].toUpperCase() : "?",
+                style: TextStyle(
                   fontSize: avatarRadius * 0.8,
                   color: AppConstants.primaryColor,
                   fontWeight: FontWeight.bold,
@@ -115,17 +128,17 @@ class ConferenceConfig {
             if (isHostUser)
               Positioned(
                 right: -4,
-                top:  -4,
+                top: -4,
                 child: Container(
                   width: hostBadgeSize,
-                  height:  hostBadgeSize,
+                  height: hostBadgeSize,
                   decoration: BoxDecoration(
-                    color:  const Color(0xFFFFD700),
+                    color: const Color(0xFFFFD700),
                     shape: BoxShape.circle,
                     border: Border.all(color: Colors.white, width: 2),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors. black.withOpacity(0.2),
+                        color: Colors.black.withOpacity(0.2),
                         blurRadius: 2,
                         offset: const Offset(0, 1),
                       ),
@@ -147,7 +160,8 @@ class ConferenceConfig {
       );
     };
 
-    // Sound Wave
+// Sound Wave
+
     config.seat.showSoundWaveInAudioMode = true;
 
     return config;

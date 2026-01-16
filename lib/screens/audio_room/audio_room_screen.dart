@@ -1,16 +1,26 @@
 import 'package:flutter/material.dart';
+
 import 'package:flutter/services.dart'; // Untuk Clipboard
+
 import 'package:shared_preferences/shared_preferences.dart';
+
 import 'package:zego_uikit_prebuilt_live_audio_room/zego_uikit_prebuilt_live_audio_room.dart';
+
 import 'package:belajar_mabrur/main.dart';
+
 import '../../core/constants.dart';
+
 import '../../meet/conference_config.dart';
 
 class AudioRoomScreen extends StatefulWidget {
   final String roomID;
+
   final bool isHost;
+
   final String userID;
+
   final String displayName;
+
   final String hostUserID;
 
   const AudioRoomScreen({
@@ -38,10 +48,13 @@ class _AudioRoomScreenState extends State<AudioRoomScreen> {
 
   Future<void> _markRoomAsCreated() async {
     final prefs = await SharedPreferences.getInstance();
+
     final roomCreatedKey = 'room_${widget.roomID}_created';
+
     final roomHostKey = 'room_${widget.roomID}_host';
 
     await prefs.setBool(roomCreatedKey, true);
+
     await prefs.setString(roomHostKey, widget.displayName);
 
     debugPrint(
@@ -50,13 +63,16 @@ class _AudioRoomScreenState extends State<AudioRoomScreen> {
 
   Future<void> _clearRoomFlag() async {
     final prefs = await SharedPreferences.getInstance();
+
     final roomCreatedKey = 'room_${widget.roomID}_created';
+
     final roomHostKey = 'room_${widget.roomID}_host';
 
     await prefs.remove(roomCreatedKey);
+
     await prefs.remove(roomHostKey);
 
-    debugPrint('AudioRoomScreen:  Room ${widget.roomID} flag cleared');
+    debugPrint('AudioRoomScreen: Room ${widget.roomID} flag cleared');
   }
 
   Future<bool> _hostLeaveDialog(BuildContext context) async {
@@ -66,7 +82,7 @@ class _AudioRoomScreenState extends State<AudioRoomScreen> {
       builder: (_) => AlertDialog(
         title: const Text("End Room"),
         content: const Text(
-            "End room akan mengakhiri sesi untuk semua pengguna.  Lanjutkan? "),
+            "End room akan mengakhiri sesi untuk semua pengguna. Lanjutkan? "),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
@@ -140,6 +156,7 @@ class _AudioRoomScreenState extends State<AudioRoomScreen> {
     if (widget.isHost) {
       _clearRoomFlag();
     }
+
     super.dispose();
   }
 
@@ -164,9 +181,12 @@ class _AudioRoomScreenState extends State<AudioRoomScreen> {
             onLeaveConfirmation: (event, defaultAction) async {
               debugPrint('onLeaveConfirmation triggered');
 
-              // --- PERBAIKAN DI SINI ---
-              // Gunakan context dari navigatorKey global.
-              // Jika null (jarang terjadi), fallback ke context lokal.
+// --- PERBAIKAN DI SINI ---
+
+// Gunakan context dari navigatorKey global.
+
+// Jika null (jarang terjadi), fallback ke context lokal.
+
               final validContext = navigatorKey.currentContext ?? context;
 
               if (widget.isHost) {
@@ -179,11 +199,13 @@ class _AudioRoomScreenState extends State<AudioRoomScreen> {
               onLeave: (user) {
                 if (user.id == widget.hostUserID && !widget.isHost) {
                   if (!mounted) return;
+
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
                       content: Text("Host telah mengakhiri room. "),
                     ),
                   );
+
                   Navigator.pop(context);
                 }
               },
@@ -191,12 +213,18 @@ class _AudioRoomScreenState extends State<AudioRoomScreen> {
           ),
         ),
 
-        // ============================================
-        // ROOM INFO OVERLAY (Room ID Badge)
-        // ============================================
-        // ============================================
-// ROOM INFO OVERLAY (Room ID & Role Badge)
 // ============================================
+
+// ROOM INFO OVERLAY (Room ID Badge)
+
+// ============================================
+
+// ============================================
+
+// ROOM INFO OVERLAY (Room ID & Role Badge)
+
+// ============================================
+
         Positioned(
           top: 0,
           left: 0,
@@ -205,14 +233,17 @@ class _AudioRoomScreenState extends State<AudioRoomScreen> {
             child: Padding(
               padding: const EdgeInsets.only(
                 left: 16,
+
                 right: 16,
+
                 top:
                     50, // Tambah margin atas agar tidak bertabrakan dengan tombol Zego
               ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
-                  // ROOM INFO BADGE
+// ROOM INFO BADGE
+
                   Container(
                     padding:
                         const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -237,6 +268,7 @@ class _AudioRoomScreenState extends State<AudioRoomScreen> {
                           onTap: () {
                             Clipboard.setData(
                                 ClipboardData(text: widget.roomID));
+
                             ScaffoldMessenger.of(context).showSnackBar(
                               const SnackBar(
                                 content: Text('Room ID disalin! '),
