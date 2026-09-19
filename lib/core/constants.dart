@@ -25,7 +25,12 @@ class AppConstants {
   static const Color warningColor = Colors.amber;
 
   // --- ZEGO CLOUD CONFIG ---
-  static const int zegoAppID = 1693455749;
-  static const String zegoAppSign =
-      "7788285c1340e7587298498be7f43d43e376b911688f8b984d8fe74f95bff6a5";
+  static const int zegoAppID = int.fromEnvironment(
+    'ZEGO_APP_ID',
+    defaultValue: 1693455749,
+  );
+  static const String zegoAppSign = String.fromEnvironment(
+    'ZEGO_APP_SIGN',
+    defaultValue: "7788285c1340e7587298498be7f43d43e376b911688f8b984d8fe74f95bff6a5",
+  );
 }

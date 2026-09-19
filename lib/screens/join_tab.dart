@@ -211,7 +211,7 @@ subtitle: Text(_isHost ? "Anda akan membuat room baru" : "Masuk sebagai peserta"
 
 value: _isHost,
 
-activeThumbColor: const Color(0xFFA01C1C),
+activeColor: const Color(0xFFA01C1C),
 
 onChanged: (val) => setState(() => _isHost = val),
 

@@ -27,6 +27,7 @@ migrate_working_dir/
 **/doc/api/
 **/ios/Flutter/.last_build_id
 .dart_tool/
+.flutter-plugins
 .flutter-plugins-dependencies
 .pub-cache/
 .pub/
@@ -44,4 +45,16 @@ app.*.map.json
 /android/app/profile
 /android/app/release
 
+# Firebase & Secret configurations
+android/app/google-services.json
+ios/GoogleService-Info.plist
+ios/Runner/GoogleService-Info.plist
 assets/service_account.json
+.env
+.env.*
+*.env
+
+# Sideload & build outputs
+*.ipa
+Payload/
+
