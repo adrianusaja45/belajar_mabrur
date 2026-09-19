@@ -1,15 +1,18 @@
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+
 class ApiConfig {
   // Base URL API
-  static const String baseUrl = String.fromEnvironment(
-    'API_BASE_URL',
-    defaultValue: "https://albirr.web.id/api",
-  );
+  static String get baseUrl =>
+      dotenv.env['API_BASE_URL'] ??
+      const String.fromEnvironment(
+        'API_BASE_URL',
+        defaultValue: "https://albirr.web.id/api",
+      );
 
   // API Key Header
-  static const String apiKey = String.fromEnvironment(
-    'API_KEY',
-    defaultValue: "prod_Uo0j5rtuOcRH3vDPvgAfHHuQspJfMNOEfooSKOhZt7E",
-  );
+  static String get apiKey =>
+      dotenv.env['API_KEY'] ??
+      const String.fromEnvironment('API_KEY', defaultValue: "");
 
   // Header default untuk setiap request
   static Map<String, String> get headers => {

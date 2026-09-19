@@ -52,6 +52,7 @@ ios/Runner/GoogleService-Info.plist
 assets/service_account.json
 .env
 .env.*
+!.env.example
 *.env
 
 # Sideload & build outputs
