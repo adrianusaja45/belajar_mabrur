@@ -7,44 +7,24 @@ class AudioRoomController {
   static final AudioRoomController instance = AudioRoomController._internal();
 
   String? roomID;
-  String? userID;
-  String? displayName;
-  String? hostUserID;
-  bool isHost = false;
 
   bool get isRoomActive =>
       roomID != null ||
       ZegoUIKitPrebuiltLiveAudioRoomController().minimize.isMinimizing;
 
-  void setSession({
-    required String roomID,
-    required String userID,
-    required String displayName,
-    required String hostUserID,
-    required bool isHost,
-  }) {
+  void setSession({required String roomID}) {
     this.roomID = roomID;
-    this.userID = userID;
-    this.displayName = displayName;
-    this.hostUserID = hostUserID;
-    this.isHost = isHost;
     debugPrint('AudioRoomController: Session set -> Room: $roomID');
   }
 
   void clearSession() {
     roomID = null;
-    userID = null;
-    displayName = null;
-    hostUserID = null;
-    isHost = false;
   }
 
   Future<void> leaveRoom(BuildContext context) async {
-    final zegoController = ZegoUIKitPrebuiltLiveAudioRoomController();
-    if (!isRoomActive && !zegoController.minimize.isMinimizing) {
-      return;
-    }
+    if (!isRoomActive) return;
 
+    final zegoController = ZegoUIKitPrebuiltLiveAudioRoomController();
     debugPrint('AudioRoomController: Cleaning up session for Room: $roomID');
     try {
       if (context.mounted) {

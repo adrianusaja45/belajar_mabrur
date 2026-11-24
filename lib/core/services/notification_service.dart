@@ -1,6 +1,9 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:googleapis_auth/auth_io.dart';
+
+import '../api_exception.dart';
 // Baris import http dihapus karena tidak digunakan
 
 class NotificationService {
@@ -51,15 +54,17 @@ class NotificationService {
         );
 
         if (response.statusCode < 200 || response.statusCode >= 300) {
-          throw Exception(
-            'FCM HTTP ${response.statusCode}: ${response.body}',
-          );
+          debugPrint('FCM HTTP ${response.statusCode}: ${response.body}');
+          throw const ApiException('Gagal mengirim notifikasi darurat.');
         }
       } finally {
         client.close();
       }
+    } on ApiException {
+      rethrow;
     } catch (e) {
-      throw Exception("Gagal mengirim SOS: $e");
+      debugPrint('Gagal mengirim SOS: $e');
+      throw const ApiException('Gagal mengirim notifikasi darurat.');
     }
   }
 }

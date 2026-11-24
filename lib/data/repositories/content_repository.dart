@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
 import '../../core/api_config.dart';
@@ -11,9 +12,13 @@ import '../models/content_model.dart';
 class ContentRepository {
   static const Duration _requestTimeout = Duration(seconds: 15);
 
+  final http.Client _client;
+
+  ContentRepository({http.Client? client}) : _client = client ?? http.Client();
+
   Future<List<ContentModel>> getContents() async {
     try {
-      final response = await http
+      final response = await _client
           .get(
             Uri.parse('${ApiConfig.baseUrl}/content'),
             headers: ApiConfig.headers,
@@ -49,7 +54,8 @@ class ContentRepository {
       throw const ApiException(
           'Tidak ada koneksi internet untuk memuat panduan.');
     } catch (e) {
-      throw ApiException('Gagal memuat panduan: $e');
+      debugPrint('ContentRepository error: $e');
+      throw const ApiException('Gagal memuat panduan. Silakan coba lagi.');
     }
   }
 }

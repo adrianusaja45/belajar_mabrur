@@ -19,8 +19,6 @@ class AuthSuccess extends AuthState {
 
   const AuthSuccess(this.message, {required this.user});
 
-  String get role => user.role;
-
   @override
   List<Object> get props => [message, user];
 }

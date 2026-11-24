@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
 
 import '../core/theme/app_theme.dart';
@@ -273,13 +272,6 @@ class _JoinTabState extends State<JoinTab> {
     final standardizedHostID = "host_$roomID";
     final myUserID = isHostUser ? standardizedHostID : userId;
     final displayName = userName.isNotEmpty ? userName : "User_$roomID";
-
-    if (isHostUser) {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setBool('room_${roomID}_created', true);
-      await prefs.setString('room_${roomID}_host', displayName);
-      debugPrint('Host created room $roomID');
-    }
 
     if (!mounted) return;
     Navigator.push(

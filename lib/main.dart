@@ -17,7 +17,6 @@ import 'logic/auth/auth_bloc.dart';
 import 'logic/dashboard/dashboard_cubit.dart';
 import 'screens/map_sos_tab.dart';
 import 'screens/splash_screen.dart';
-import 'screens/audio_room/audio_room_screen.dart';
 
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
@@ -242,20 +241,6 @@ class _MyAppState extends State<MyApp> {
                 ),
               ],
             );
-          },
-
-          routes: {
-            '/audioRoom': (ctx) {
-              final args = ModalRoute.of(ctx)!.settings.arguments
-                  as Map<String, dynamic>;
-              return AudioRoomScreen(
-                roomID: args['roomID'],
-                userID: args['userID'],
-                displayName: args['displayName'],
-                hostUserID: args['hostUserID'],
-                isHost: args['isHost'] ?? false,
-              );
-            },
           },
 
           theme: AppTheme.lightTheme,

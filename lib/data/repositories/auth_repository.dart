@@ -16,217 +16,174 @@ class AuthRepository {
   static const String _tokenKey = 'auth_token';
 
   final FlutterSecureStorage _secureStorage;
+  final http.Client _client;
 
-  AuthRepository({FlutterSecureStorage? secureStorage})
-      : _secureStorage = secureStorage ?? const FlutterSecureStorage();
+  AuthRepository({
+    FlutterSecureStorage? secureStorage,
+    http.Client? client,
+  })  : _secureStorage = secureStorage ?? const FlutterSecureStorage(),
+        _client = client ?? http.Client();
 
   Future<UserModel> login(String username, String password) async {
-    try {
-      final response = await http
-          .post(
-            Uri.parse('${ApiConfig.baseUrl}/login'),
-            headers: ApiConfig.headers,
-            body: jsonEncode({"username": username, "password": password}),
-          )
-          .timeout(_requestTimeout);
+    final response = await _sendRequest(
+      () => _client.post(
+        Uri.parse('${ApiConfig.baseUrl}/login'),
+        headers: ApiConfig.headers,
+        body: jsonEncode({"username": username, "password": password}),
+      ),
+      timeoutMessage: 'Server tidak merespons. Periksa koneksi Anda.',
+      offlineMessage: 'Tidak dapat terhubung ke server. Periksa internet Anda.',
+      fallbackMessage: 'Terjadi kesalahan saat masuk. Silakan coba lagi.',
+    );
 
-      final data = _decodeJsonObject(response.body);
+    final data = _decodeJsonObject(response.body);
 
-      if (response.statusCode == 200) {
-        final payload = data['data'];
-        if (payload is! Map<String, dynamic>) {
-          throw const ApiException('Format respons login tidak valid.');
-        }
-
-        final token = payload['token']?.toString() ?? '';
-        final userMap = payload['user'];
-        if (token.isEmpty || userMap is! Map<String, dynamic>) {
-          throw const ApiException('Data sesi login tidak lengkap.');
-        }
-
-        final user = UserModel.fromJson(
-          userMap,
-          fallbackUsername: username,
-        );
-
-        await _saveUserData(user);
-        await _saveToken(token);
-
-        debugPrint(
-            "Login Berhasil - Role: ${user.role}, Group: ${user.groupId}");
-        return user;
+    if (response.statusCode == 200) {
+      final payload = data['data'];
+      if (payload is! Map<String, dynamic>) {
+        throw const ApiException('Format respons login tidak valid.');
       }
 
-      throw ApiException(
-        _extractMessage(data, fallback: 'Username atau password salah.'),
+      final token = payload['token']?.toString() ?? '';
+      final userMap = payload['user'];
+      if (token.isEmpty || userMap is! Map<String, dynamic>) {
+        throw const ApiException('Data sesi login tidak lengkap.');
+      }
+
+      final user = UserModel.fromJson(
+        userMap,
+        fallbackUsername: username,
       );
-    } on ApiException {
-      rethrow;
-    } on TimeoutException {
-      throw const ApiException('Server tidak merespons. Periksa koneksi Anda.');
-    } on SocketException {
-      throw const ApiException(
-          'Tidak dapat terhubung ke server. Periksa internet Anda.');
-    } catch (e) {
-      throw ApiException('Terjadi kesalahan saat masuk: $e');
+
+      await _saveUserData(user);
+      await _saveToken(token);
+
+      debugPrint("Login Berhasil - Role: ${user.role}, Group: ${user.groupId}");
+      return user;
     }
+
+    throw ApiException(
+      _extractMessage(data, fallback: 'Username atau password salah.'),
+    );
   }
 
   Future<void> register(String name, String username, String password) async {
-    try {
-      final response = await http
-          .post(
-            Uri.parse('${ApiConfig.baseUrl}/register'),
-            headers: ApiConfig.headers,
-            body: jsonEncode({
-              "name": name,
-              "username": username,
-              "password": password,
-              "role": "user",
-            }),
-          )
-          .timeout(_requestTimeout);
+    final response = await _sendRequest(
+      () => _client.post(
+        Uri.parse('${ApiConfig.baseUrl}/register'),
+        headers: ApiConfig.headers,
+        body: jsonEncode({
+          "name": name,
+          "username": username,
+          "password": password,
+          "role": "user",
+        }),
+      ),
+      timeoutMessage: 'Server tidak merespons. Silakan coba lagi.',
+      offlineMessage: 'Tidak dapat terhubung ke server. Periksa internet Anda.',
+      fallbackMessage: 'Pendaftaran gagal. Silakan coba lagi.',
+    );
 
-      final data = _decodeJsonObject(response.body);
+    final data = _decodeJsonObject(response.body);
 
-      if (response.statusCode == 201 || response.statusCode == 200) {
-        return;
-      }
-
-      throw ApiException(
-        _extractMessage(data,
-            fallback: 'Pendaftaran gagal. Silakan coba lagi.'),
-      );
-    } on ApiException {
-      rethrow;
-    } on TimeoutException {
-      throw const ApiException('Server tidak merespons. Silakan coba lagi.');
-    } on SocketException {
-      throw const ApiException(
-          'Tidak dapat terhubung ke server. Periksa internet Anda.');
-    } catch (e) {
-      throw ApiException('Gagal mendaftar: $e');
+    if (response.statusCode == 201 || response.statusCode == 200) {
+      return;
     }
+
+    throw ApiException(
+      _extractMessage(
+        data,
+        fallback: 'Pendaftaran gagal. Silakan coba lagi.',
+      ),
+    );
   }
 
   Future<UserModel> getProfile() async {
     final token = await _requireToken();
-
-    try {
-      final response = await http.get(
+    final response = await _sendRequest(
+      () => _client.get(
         Uri.parse('${ApiConfig.baseUrl}/current'),
-        headers: {
-          ...ApiConfig.headers,
-          'Authorization': 'Bearer $token',
-        },
-      ).timeout(_requestTimeout);
+        headers: _authHeaders(token),
+      ),
+      timeoutMessage: 'Gagal memuat profil karena koneksi timeout.',
+      offlineMessage: 'Tidak ada koneksi internet untuk memuat profil.',
+      fallbackMessage: 'Gagal memuat profil. Silakan coba lagi.',
+    );
 
-      final data = _decodeJsonObject(response.body);
+    final data = _decodeJsonObject(response.body);
 
-      if (response.statusCode == 200) {
-        final userMap = data['data'];
-        if (userMap is! Map<String, dynamic>) {
-          throw const ApiException('Format data profil tidak valid.');
-        }
-
-        final user = UserModel.fromJson(userMap);
-        await _saveUserData(user);
-        return user;
+    if (response.statusCode == 200) {
+      final userMap = data['data'];
+      if (userMap is! Map<String, dynamic>) {
+        throw const ApiException('Format data profil tidak valid.');
       }
 
-      if (response.statusCode == 401) {
-        await logout();
-      }
-      throw ApiException(
-        _extractMessage(data, fallback: 'Gagal memuat profil.'),
-      );
-    } on ApiException {
-      rethrow;
-    } on TimeoutException {
-      throw const ApiException('Gagal memuat profil karena koneksi timeout.');
-    } on SocketException {
-      throw const ApiException(
-          'Tidak ada koneksi internet untuk memuat profil.');
-    } catch (e) {
-      throw ApiException('Gagal memuat profil: $e');
+      final user = UserModel.fromJson(userMap);
+      await _saveUserData(user);
+      return user;
     }
+
+    if (response.statusCode == 401) {
+      await logout();
+    }
+    throw ApiException(
+      _extractMessage(data, fallback: 'Gagal memuat profil.'),
+    );
   }
 
   Future<void> updateProfile(String name, String username) async {
     final token = await _requireToken();
+    final response = await _sendRequest(
+      () => _client.put(
+        Uri.parse('${ApiConfig.baseUrl}/user/update'),
+        headers: _authHeaders(token),
+        body: jsonEncode({
+          "name": name,
+          "username": username,
+        }),
+      ),
+      timeoutMessage: 'Koneksi timeout saat memperbarui profil.',
+      offlineMessage: 'Periksa koneksi internet Anda.',
+      fallbackMessage: 'Gagal memperbarui profil. Silakan coba lagi.',
+    );
 
-    try {
-      final response = await http
-          .put(
-            Uri.parse('${ApiConfig.baseUrl}/user/update'),
-            headers: {
-              ...ApiConfig.headers,
-              'Authorization': 'Bearer $token',
-            },
-            body: jsonEncode({
-              "name": name,
-              "username": username,
-            }),
-          )
-          .timeout(_requestTimeout);
-
-      if (response.statusCode == 200) {
-        final prefs = await SharedPreferences.getInstance();
-        await prefs.setString('user_name', name);
-        await prefs.setString('user_username', username);
-        return;
-      }
-
-      final data = _decodeJsonObject(response.body);
-      throw ApiException(
-        _extractMessage(data, fallback: 'Gagal memperbarui profil.'),
-      );
-    } on ApiException {
-      rethrow;
-    } on TimeoutException {
-      throw const ApiException('Koneksi timeout saat memperbarui profil.');
-    } on SocketException {
-      throw const ApiException('Periksa koneksi internet Anda.');
-    } catch (e) {
-      throw ApiException('Gagal memperbarui profil: $e');
+    if (response.statusCode == 200) {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('user_name', name);
+      await prefs.setString('user_username', username);
+      return;
     }
+
+    final data = _decodeJsonObject(response.body);
+    throw ApiException(
+      _extractMessage(data, fallback: 'Gagal memperbarui profil.'),
+    );
   }
 
   Future<void> updatePassword(String oldPassword, String newPassword) async {
     final token = await _requireToken();
+    final response = await _sendRequest(
+      () => _client.put(
+        Uri.parse('${ApiConfig.baseUrl}/user/password'),
+        headers: _authHeaders(token),
+        body: jsonEncode({
+          "old_password": oldPassword,
+          "new_password": newPassword,
+        }),
+      ),
+      timeoutMessage: 'Koneksi timeout saat mengubah password.',
+      offlineMessage: 'Periksa koneksi internet Anda.',
+      fallbackMessage: 'Gagal mengubah password. Silakan coba lagi.',
+    );
 
-    try {
-      final response = await http
-          .put(
-            Uri.parse('${ApiConfig.baseUrl}/user/password'),
-            headers: {
-              ...ApiConfig.headers,
-              'Authorization': 'Bearer $token',
-            },
-            body: jsonEncode({
-              "old_password": oldPassword,
-              "new_password": newPassword,
-            }),
-          )
-          .timeout(_requestTimeout);
-
-      if (response.statusCode == 200) {
-        return;
-      }
-
-      final data = _decodeJsonObject(response.body);
-      throw ApiException(
-        _extractMessage(data, fallback: 'Gagal mengubah password.'),
-      );
-    } on ApiException {
-      rethrow;
-    } on TimeoutException {
-      throw const ApiException('Koneksi timeout saat mengubah password.');
-    } on SocketException {
-      throw const ApiException('Periksa koneksi internet Anda.');
-    } catch (e) {
-      throw ApiException('Gagal mengubah password: $e');
+    if (response.statusCode == 200) {
+      return;
     }
+
+    final data = _decodeJsonObject(response.body);
+    throw ApiException(
+      _extractMessage(data, fallback: 'Gagal mengubah password.'),
+    );
   }
 
   Future<UserModel?> getCachedUser() async {
@@ -323,6 +280,31 @@ class AuthRepository {
       throw const ApiException('Sesi habis, silakan login ulang.');
     }
     return token;
+  }
+
+  Map<String, String> _authHeaders(String token) => {
+        ...ApiConfig.headers,
+        'Authorization': 'Bearer $token',
+      };
+
+  Future<http.Response> _sendRequest(
+    Future<http.Response> Function() request, {
+    required String timeoutMessage,
+    required String offlineMessage,
+    required String fallbackMessage,
+  }) async {
+    try {
+      return await request().timeout(_requestTimeout);
+    } on ApiException {
+      rethrow;
+    } on TimeoutException {
+      throw ApiException(timeoutMessage);
+    } on SocketException {
+      throw ApiException(offlineMessage);
+    } catch (e) {
+      debugPrint('AuthRepository request error: $e');
+      throw ApiException(fallbackMessage);
+    }
   }
 
   Map<String, dynamic> _decodeJsonObject(String body) {

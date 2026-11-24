@@ -12,6 +12,11 @@
 - Jangan meng-commit file rahasia (`.env`, `assets/service_account.json`, `android/local.properties`, `ios/Runner/AppKeys.swift`, `google-services.json`, `GoogleService-Info.plist`).
 - Pengiriman FCM SOS saat ini berjalan dari sisi klien (`NotificationService`) bersama pencatatan Firestore (`SosRepository`); kegagalan Firestore tidak boleh memblokir pengiriman sinyal darurat FCM.
 
+## Prinsip Ringkas (Plugin Ponytail)
+- Terapkan plugin `ponytail` pada setiap perubahan kode: pilih perubahan paling ringkas yang tuntas, pakai ulang helper atau pola yang sudah ada, hapus kode mati, dan hindari abstraksi, wrapper, atau dependensi baru yang tidak diminta.
+- Jangan pernah memangkas validasi pada batas kepercayaan, penanganan error yang mencegah kehilangan data, keamanan, aksesibilitas, maupun kebutuhan eksplisit pengguna.
+- Bila memakai shortcut dengan batasan yang diketahui, tandai dengan komentar 1 baris berformat `// shortcut: <batasan>, <kapan upgrade>`.
+
 ## Verifikasi Wajib Sebelum Selesai
 - Jalankan `flutter analyze --no-pub` (target 0 issues).
 - Jalankan `dart format` pada seluruh file Dart yang diubah.

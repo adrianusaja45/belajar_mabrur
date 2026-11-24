@@ -84,6 +84,18 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       emit(AuthSuccess('Selamat Datang Kembali', user: user));
     } catch (e) {
       debugPrint('Auto-login error: $e');
+      // Keep cached session on network failure; HTTP 401 already cleared token.
+      try {
+        if (await authRepository.hasToken()) {
+          final cachedUser = await authRepository.getCachedUser();
+          if (cachedUser != null) {
+            emit(AuthSuccess('Mode offline', user: cachedUser));
+            return;
+          }
+        }
+      } catch (cacheError) {
+        debugPrint('Offline cache read error: $cacheError');
+      }
       emit(AuthUnauthenticated());
     }
   }

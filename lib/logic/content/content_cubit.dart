@@ -2,12 +2,13 @@ import 'package:belajar_mabrur/data/repositories/content_repository.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../core/api_exception.dart';
 import '../../data/models/content_model.dart';
 import 'content_state.dart';
 
 class ContentCubit extends Cubit<ContentState> {
   final ContentRepository repository;
-  
+
   // Cache data asli agar tidak perlu hit API ulang saat filtering
   List<ContentModel> _allContent = [];
 
@@ -16,20 +17,20 @@ class ContentCubit extends Cubit<ContentState> {
   /// Fungsi untuk mengambil data dari Server
   void fetchContent() async {
     // Safety check: Jangan emit jika widget sudah didispose
-    if (isClosed) return; 
-    
+    if (isClosed) return;
+
     emit(ContentLoading());
     try {
-      _allContent = await repository.getContents().timeout(
-        const Duration(seconds: 10),
-        onTimeout: () => throw Exception("Server tidak merespons (Timeout)"),
-      );
-      
-      if (isClosed) return; 
+      _allContent = await repository.getContents();
+
+      if (isClosed) return;
       emit(ContentLoaded(_allContent));
     } catch (e) {
       debugPrint("Content Error: $e");
-      if (!isClosed) emit(ContentError(e.toString()));
+      final message = e is ApiException
+          ? e.message
+          : 'Gagal memuat panduan. Silakan coba lagi.';
+      if (!isClosed) emit(ContentError(message));
     }
   }
 
@@ -53,15 +54,14 @@ class ContentCubit extends Cubit<ContentState> {
 
     // Logika Filter
     List<ContentModel> filtered = _allContent.where((item) {
-      final matchCategory = currentCategory == "All" || item.category == currentCategory;
-      final matchSearch = item.name.toLowerCase().contains(currentQuery.toLowerCase());
+      final matchCategory =
+          currentCategory == "All" || item.category == currentCategory;
+      final matchSearch =
+          item.name.toLowerCase().contains(currentQuery.toLowerCase());
       return matchCategory && matchSearch;
     }).toList();
 
-    emit(ContentLoaded(
-      filtered, 
-      activeCategory: currentCategory, 
-      searchQuery: currentQuery
-    ));
+    emit(ContentLoaded(filtered,
+        activeCategory: currentCategory, searchQuery: currentQuery));
   }
 }

@@ -2,8 +2,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
+import '../core/api_exception.dart';
 import '../core/services/location_services.dart';
 import '../core/services/notification_service.dart';
 import '../core/theme/app_theme.dart';
@@ -51,9 +51,9 @@ class MapSosTabState extends State<MapSosTab> {
       role = authBlocState.user.role;
       groupId = authBlocState.user.groupId;
     } else {
-      final prefs = await SharedPreferences.getInstance();
-      role = prefs.getString('user_role') ?? 'user';
-      groupId = await authRepository.getGroupId();
+      final cached = await authRepository.getCachedUser();
+      role = cached?.role ?? 'user';
+      groupId = cached?.groupId ?? await authRepository.getGroupId();
     }
 
     if (mounted) setState(() => _userRole = role);
@@ -95,6 +95,7 @@ class MapSosTabState extends State<MapSosTab> {
       );
     });
     final controller = await _controller.future;
+    if (!mounted) return;
     controller.animateCamera(CameraUpdate.newLatLngZoom(newPos, 15.0));
   }
 
@@ -138,7 +139,7 @@ class MapSosTabState extends State<MapSosTab> {
 
       final position = await _locationService.getCurrentPosition();
       if (position == null) {
-        throw Exception("Lokasi tidak ditemukan. Pastikan GPS aktif.");
+        throw const ApiException("Lokasi tidak ditemukan. Pastikan GPS aktif.");
       }
 
       final String timeStamp = DateTime.now().toString().substring(11, 16);
@@ -178,7 +179,9 @@ class MapSosTabState extends State<MapSosTab> {
 
       if (!mounted) return;
       if (fcmError != null && firestoreError != null) {
-        throw Exception("SOS gagal terkirim. Periksa koneksi internet Anda.");
+        throw const ApiException(
+          "SOS gagal terkirim. Periksa koneksi internet Anda.",
+        );
       }
 
       final String feedbackMessage;
@@ -205,9 +208,12 @@ class MapSosTabState extends State<MapSosTab> {
     } catch (e) {
       debugPrint("Gagal kirim SOS: $e");
       if (mounted) {
+        final message = e is ApiException
+            ? e.message
+            : "Gagal mengirim sinyal SOS. Silakan coba lagi.";
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text("Gagal: $e"),
+            content: Text(message),
             backgroundColor: AppColors.error,
           ),
         );
@@ -293,11 +299,13 @@ class MapSosTabState extends State<MapSosTab> {
     double lng,
     String senderName,
   ) async {
+    if (!mounted) return;
     final LatLng sosPos = LatLng(lat, lng);
     setState(() {
+      _markers.removeWhere((m) => m.markerId.value == 'active_sos');
       _markers.add(
         Marker(
-          markerId: MarkerId('sos_${DateTime.now().millisecondsSinceEpoch}'),
+          markerId: const MarkerId('active_sos'),
           position: sosPos,
           infoWindow: InfoWindow(title: "SOS: $senderName"),
           icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed),
@@ -305,6 +313,7 @@ class MapSosTabState extends State<MapSosTab> {
       );
     });
     final controller = await _controller.future;
+    if (!mounted) return;
     controller.animateCamera(CameraUpdate.newLatLngZoom(sosPos, 17.0));
   }
 
@@ -364,7 +373,11 @@ class MapSosTabState extends State<MapSosTab> {
               buildingsEnabled: false,
               indoorViewEnabled: false,
               tiltGesturesEnabled: false,
-              onMapCreated: (c) => _controller.complete(c),
+              onMapCreated: (c) {
+                if (!_controller.isCompleted) {
+                  _controller.complete(c);
+                }
+              },
             ),
           ),
           if (_userRole == 'host') _buildHostSosPanel(),

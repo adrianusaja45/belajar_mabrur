@@ -1,7 +1,6 @@
 import 'package:belajar_mabrur/main.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:zego_uikit_prebuilt_live_audio_room/zego_uikit_prebuilt_live_audio_room.dart';
 
 import '../../core/constants.dart';
@@ -33,55 +32,28 @@ class _AudioRoomScreenState extends State<AudioRoomScreen> {
   @override
   void initState() {
     super.initState();
-
-    AudioRoomController.instance.setSession(
-      roomID: widget.roomID,
-      userID: widget.userID,
-      displayName: widget.displayName,
-      hostUserID: widget.hostUserID,
-      isHost: widget.isHost,
-    );
-
-    if (widget.isHost) {
-      _markRoomAsCreated();
-    }
-  }
-
-  Future<void> _markRoomAsCreated() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('room_${widget.roomID}_created', true);
-    await prefs.setString('room_${widget.roomID}_host', widget.displayName);
-    debugPrint(
-      'AudioRoomScreen: Room ${widget.roomID} marked as created by ${widget.displayName}',
-    );
-  }
-
-  Future<void> _clearRoomFlag() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove('room_${widget.roomID}_created');
-    await prefs.remove('room_${widget.roomID}_host');
-    debugPrint('AudioRoomScreen: Room ${widget.roomID} flag cleared');
+    AudioRoomController.instance.setSession(roomID: widget.roomID);
   }
 
   Future<bool> _hostLeaveDialog(BuildContext context) async {
     final result = await showDialog<bool>(
       context: context,
       barrierDismissible: false,
-      builder: (_) => AlertDialog(
+      builder: (dialogContext) => AlertDialog(
         title: const Text("End Room"),
         content: const Text(
           "End room akan mengakhiri sesi untuk semua pengguna. Lanjutkan?",
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context, false),
+            onPressed: () => Navigator.pop(dialogContext, false),
             child: const Text(
               "Batal",
               style: TextStyle(color: AppColors.textSecondary),
             ),
           ),
           ElevatedButton(
-            onPressed: () => Navigator.pop(context, true),
+            onPressed: () => Navigator.pop(dialogContext, true),
             style: ElevatedButton.styleFrom(
               backgroundColor: AppColors.error,
               foregroundColor: AppColors.textOnPrimary,
@@ -99,7 +71,7 @@ class _AudioRoomScreenState extends State<AudioRoomScreen> {
     final result = await showDialog<bool>(
       context: context,
       barrierDismissible: false,
-      builder: (_) => AlertDialog(
+      builder: (dialogContext) => AlertDialog(
         title: const Text("Keluar Room"),
         content: Column(
           mainAxisSize: MainAxisSize.min,
@@ -132,14 +104,14 @@ class _AudioRoomScreenState extends State<AudioRoomScreen> {
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context, false),
+            onPressed: () => Navigator.pop(dialogContext, false),
             child: const Text(
               "Batal",
               style: TextStyle(color: AppColors.textSecondary),
             ),
           ),
           ElevatedButton(
-            onPressed: () => Navigator.pop(context, true),
+            onPressed: () => Navigator.pop(dialogContext, true),
             child: const Text("Keluar"),
           ),
         ],
@@ -153,9 +125,6 @@ class _AudioRoomScreenState extends State<AudioRoomScreen> {
   void dispose() {
     // Keep room state intact while minimized into PiP overlay.
     if (!ZegoUIKitPrebuiltLiveAudioRoomController().minimize.isMinimizing) {
-      if (widget.isHost) {
-        _clearRoomFlag();
-      }
       AudioRoomController.instance.clearSession();
     }
 
@@ -193,9 +162,6 @@ class _AudioRoomScreenState extends State<AudioRoomScreen> {
                 }
               },
               onEnded: (event, defaultAction) {
-                if (widget.isHost) {
-                  _clearRoomFlag();
-                }
                 AudioRoomController.instance.clearSession();
                 // Zego calls minimize.hide() before defaultAction, so skip pop when leaving from PiP.
                 if (event.isFromMinimizing) {
