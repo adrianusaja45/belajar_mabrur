@@ -11,6 +11,7 @@ import '../data/repositories/auth_repository.dart';
 import '../data/repositories/sos_repository.dart';
 import '../logic/auth/auth_bloc.dart';
 import '../logic/dashboard/dashboard_cubit.dart';
+import '../logic/dashboard/dashboard_state.dart';
 
 final GlobalKey<MapSosTabState> mapSosKey = GlobalKey<MapSosTabState>();
 
@@ -350,16 +351,21 @@ class MapSosTabState extends State<MapSosTab> {
     return Scaffold(
       body: Stack(
         children: [
-          GoogleMap(
-            initialCameraPosition: const CameraPosition(
-              target: LatLng(-6.175, 106.82),
-              zoom: 12,
+          RepaintBoundary(
+            child: GoogleMap(
+              initialCameraPosition: const CameraPosition(
+                target: LatLng(-6.175, 106.82),
+                zoom: 12,
+              ),
+              markers: _markers,
+              myLocationEnabled: true,
+              myLocationButtonEnabled: false,
+              zoomControlsEnabled: false,
+              buildingsEnabled: false,
+              indoorViewEnabled: false,
+              tiltGesturesEnabled: false,
+              onMapCreated: (c) => _controller.complete(c),
             ),
-            markers: _markers,
-            myLocationEnabled: true,
-            myLocationButtonEnabled: false,
-            zoomControlsEnabled: false,
-            onMapCreated: (c) => _controller.complete(c),
           ),
           if (_userRole == 'host') _buildHostSosPanel(),
           if (_userRole != 'host')
@@ -447,125 +453,155 @@ class MapSosTabState extends State<MapSosTab> {
   }
 
   Widget _buildHostSosPanel() {
-    final history = context.watch<DashboardCubit>().state.sosHistory;
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final double maxHeight =
+            constraints.maxHeight > 0 ? constraints.maxHeight : 700;
+        // Match collapsed height to handle + header so the first list item never clips in half.
+        final double collapsedSize = (74 / maxHeight).clamp(0.09, 0.22);
+        final double midSize = collapsedSize < 0.45 ? 0.48 : 0.60;
 
-    return DraggableScrollableSheet(
-      initialChildSize: 0.16,
-      minChildSize: 0.16,
-      maxChildSize: 0.8,
-      builder: (context, scrollController) {
-        return Container(
-          decoration: const BoxDecoration(
-            color: AppColors.background,
-            borderRadius:
-                BorderRadius.vertical(top: Radius.circular(AppRadius.lg)),
-            boxShadow: [BoxShadow(color: Colors.black26, blurRadius: 10)],
-          ),
-          child: SafeArea(
-            top: false,
-            child: ListView(
-              controller: scrollController,
-              padding: EdgeInsets.zero,
-              children: [
-                const SizedBox(height: AppSpacing.md),
-                Center(
-                  child: Container(
-                    width: 40,
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: AppColors.borderChip,
-                      borderRadius: BorderRadius.circular(2),
+        return DraggableScrollableSheet(
+          initialChildSize: collapsedSize,
+          minChildSize: collapsedSize,
+          maxChildSize: 0.8,
+          snap: true,
+          snapSizes: [collapsedSize, midSize, 0.8],
+          builder: (context, scrollController) {
+            return BlocSelector<DashboardCubit, DashboardState,
+                List<Map<String, dynamic>>>(
+              selector: (state) => state.sosHistory,
+              builder: (context, history) {
+                return Material(
+                  color: AppColors.background,
+                  elevation: 8,
+                  shadowColor: Colors.black26,
+                  borderRadius: const BorderRadius.vertical(
+                    top: Radius.circular(AppRadius.lg),
+                  ),
+                  clipBehavior: Clip.antiAlias,
+                  child: SafeArea(
+                    top: false,
+                    child: ListView(
+                      controller: scrollController,
+                      padding: EdgeInsets.zero,
+                      children: [
+                        const SizedBox(height: AppSpacing.md),
+                        Center(
+                          child: Container(
+                            width: 40,
+                            height: 4,
+                            decoration: BoxDecoration(
+                              color: AppColors.borderChip,
+                              borderRadius: BorderRadius.circular(2),
+                            ),
+                          ),
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: AppSpacing.xl,
+                            vertical: 6,
+                          ),
+                          child: ConstrainedBox(
+                            constraints: const BoxConstraints(minHeight: 44),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                const Text(
+                                  "Riwayat SOS",
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 16,
+                                    color: AppColors.textPrimary,
+                                  ),
+                                ),
+                                if (history.isNotEmpty)
+                                  TextButton.icon(
+                                    style: TextButton.styleFrom(
+                                      foregroundColor: AppColors.error,
+                                      minimumSize: const Size(48, 44),
+                                      tapTargetSize:
+                                          MaterialTapTargetSize.shrinkWrap,
+                                    ),
+                                    onPressed: () =>
+                                        _confirmClearHistory(context),
+                                    icon: const Icon(Icons.delete_outline,
+                                        size: 20),
+                                    label: const Text(
+                                      "Hapus",
+                                      style: TextStyle(
+                                          fontWeight: FontWeight.bold),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        const Divider(height: 1, color: AppColors.borderSubtle),
+                        const SizedBox(height: AppSpacing.sm),
+                        if (history.isEmpty)
+                          const SizedBox(
+                            height: 180,
+                            child: Center(
+                              child: Text(
+                                "Belum ada laporan masuk.",
+                                style:
+                                    TextStyle(color: AppColors.textSecondary),
+                              ),
+                            ),
+                          )
+                        else
+                          ListView.separated(
+                            shrinkWrap: true,
+                            physics: const NeverScrollableScrollPhysics(),
+                            itemCount: history.length,
+                            separatorBuilder: (context, index) =>
+                                const Divider(color: AppColors.borderSubtle),
+                            itemBuilder: (context, index) {
+                              final data = history[index];
+                              final sender =
+                                  data['name']?.toString() ?? "Seseorang";
+                              return ListTile(
+                                minTileHeight: 56,
+                                leading: const CircleAvatar(
+                                  backgroundColor: AppColors.error,
+                                  child: Icon(
+                                    Icons.emergency,
+                                    color: AppColors.textOnPrimary,
+                                  ),
+                                ),
+                                title: Text(
+                                  "$sender - ${data['time']}",
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    color: AppColors.textPrimary,
+                                  ),
+                                ),
+                                subtitle: Text(
+                                  "Lokasi: ${data['lat']}, ${data['lng']}",
+                                  style: const TextStyle(
+                                    color: AppColors.textSecondary,
+                                  ),
+                                ),
+                                onTap: () {
+                                  final lat =
+                                      double.tryParse(data['lat'].toString());
+                                  final lng =
+                                      double.tryParse(data['lng'].toString());
+                                  if (lat != null && lng != null) {
+                                    _goToSOSLocation(lat, lng, sender);
+                                  }
+                                },
+                              );
+                            },
+                          ),
+                      ],
                     ),
                   ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: AppSpacing.xl,
-                    vertical: AppSpacing.sm,
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text(
-                        "Riwayat SOS",
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 16,
-                          color: AppColors.textPrimary,
-                        ),
-                      ),
-                      if (history.isNotEmpty)
-                        TextButton.icon(
-                          style: TextButton.styleFrom(
-                            foregroundColor: AppColors.error,
-                            minimumSize: const Size(48, 44),
-                          ),
-                          onPressed: () => _confirmClearHistory(context),
-                          icon: const Icon(Icons.delete_outline, size: 20),
-                          label: const Text(
-                            "Hapus",
-                            style: TextStyle(fontWeight: FontWeight.bold),
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
-                const Divider(height: 1, color: AppColors.borderSubtle),
-                if (history.isEmpty)
-                  const SizedBox(
-                    height: 180,
-                    child: Center(
-                      child: Text(
-                        "Belum ada laporan masuk.",
-                        style: TextStyle(color: AppColors.textSecondary),
-                      ),
-                    ),
-                  )
-                else
-                  ListView.separated(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    itemCount: history.length,
-                    separatorBuilder: (context, index) =>
-                        const Divider(color: AppColors.borderSubtle),
-                    itemBuilder: (context, index) {
-                      final data = history[index];
-                      final sender = data['name']?.toString() ?? "Seseorang";
-                      return ListTile(
-                        minTileHeight: 56,
-                        leading: const CircleAvatar(
-                          backgroundColor: AppColors.error,
-                          child: Icon(
-                            Icons.emergency,
-                            color: AppColors.textOnPrimary,
-                          ),
-                        ),
-                        title: Text(
-                          "$sender - ${data['time']}",
-                          style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            color: AppColors.textPrimary,
-                          ),
-                        ),
-                        subtitle: Text(
-                          "Lokasi: ${data['lat']}, ${data['lng']}",
-                          style: const TextStyle(
-                            color: AppColors.textSecondary,
-                          ),
-                        ),
-                        onTap: () {
-                          final lat = double.tryParse(data['lat'].toString());
-                          final lng = double.tryParse(data['lng'].toString());
-                          if (lat != null && lng != null) {
-                            _goToSOSLocation(lat, lng, sender);
-                          }
-                        },
-                      );
-                    },
-                  ),
-              ],
-            ),
-          ),
+                );
+              },
+            );
+          },
         );
       },
     );

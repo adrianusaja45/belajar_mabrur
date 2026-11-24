@@ -164,134 +164,137 @@ class _AudioRoomScreenState extends State<AudioRoomScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Stack(
-      children: [
-        ZegoUIKitPrebuiltLiveAudioRoom(
-          appID: AppConstants.zegoAppID,
-          appSign: AppConstants.zegoAppSign,
-          roomID: widget.roomID,
-          userID: widget.userID,
-          userName: widget.displayName,
-          config: ConferenceConfig.get(
-            context: context,
-            isHost: widget.isHost,
-            hostUserID: widget.hostUserID,
-            currentUserID: widget.userID,
+    return Scaffold(
+      backgroundColor: AppColors.background,
+      body: Stack(
+        children: [
+          ZegoUIKitPrebuiltLiveAudioRoom(
+            appID: AppConstants.zegoAppID,
+            appSign: AppConstants.zegoAppSign,
             roomID: widget.roomID,
-          ),
-          events: ZegoUIKitPrebuiltLiveAudioRoomEvents(
-            onLeaveConfirmation: (event, defaultAction) async {
-              debugPrint('onLeaveConfirmation triggered');
-              final validContext = navigatorKey.currentContext ?? context;
+            userID: widget.userID,
+            userName: widget.displayName,
+            config: ConferenceConfig.get(
+              context: context,
+              isHost: widget.isHost,
+              hostUserID: widget.hostUserID,
+              currentUserID: widget.userID,
+              roomID: widget.roomID,
+            ),
+            events: ZegoUIKitPrebuiltLiveAudioRoomEvents(
+              onLeaveConfirmation: (event, defaultAction) async {
+                debugPrint('onLeaveConfirmation triggered');
+                final validContext = navigatorKey.currentContext ?? context;
 
-              if (widget.isHost) {
-                return await _hostLeaveDialog(validContext);
-              } else {
-                return await _userLeaveDialog(validContext);
-              }
-            },
-            onEnded: (event, defaultAction) {
-              if (widget.isHost) {
-                _clearRoomFlag();
-              }
-              AudioRoomController.instance.clearSession();
-              // Zego calls minimize.hide() before defaultAction, so skip pop when leaving from PiP.
-              if (event.isFromMinimizing) {
-                return;
-              }
-              defaultAction.call();
-            },
-            user: ZegoLiveAudioRoomUserEvents(
-              onLeave: (user) {
-                if (user.id == widget.hostUserID && !widget.isHost) {
-                  if (!mounted) return;
-
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text("Host telah mengakhiri room."),
-                    ),
-                  );
-
-                  Navigator.pop(context);
+                if (widget.isHost) {
+                  return await _hostLeaveDialog(validContext);
+                } else {
+                  return await _userLeaveDialog(validContext);
                 }
               },
+              onEnded: (event, defaultAction) {
+                if (widget.isHost) {
+                  _clearRoomFlag();
+                }
+                AudioRoomController.instance.clearSession();
+                // Zego calls minimize.hide() before defaultAction, so skip pop when leaving from PiP.
+                if (event.isFromMinimizing) {
+                  return;
+                }
+                defaultAction.call();
+              },
+              user: ZegoLiveAudioRoomUserEvents(
+                onLeave: (user) {
+                  if (user.id == widget.hostUserID && !widget.isHost) {
+                    if (!mounted) return;
+
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text("Host telah mengakhiri room."),
+                      ),
+                    );
+
+                    Navigator.pop(context);
+                  }
+                },
+              ),
             ),
           ),
-        ),
-        Positioned(
-          top: 0,
-          left: 0,
-          right: 0,
-          child: SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.only(
-                left: AppSpacing.lg,
-                right: AppSpacing.lg,
-                top: 50,
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  Semantics(
-                    button: true,
-                    label: 'Salin Room ID ${widget.roomID}',
-                    child: Tooltip(
-                      message: 'Salin Room ID',
-                      child: Material(
-                        color: Colors.black.withValues(alpha: 0.72),
-                        borderRadius: BorderRadius.circular(AppRadius.md),
-                        child: InkWell(
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            child: SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.only(
+                  left: AppSpacing.lg,
+                  right: AppSpacing.lg,
+                  top: 50,
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    Semantics(
+                      button: true,
+                      label: 'Salin Room ID ${widget.roomID}',
+                      child: Tooltip(
+                        message: 'Salin Room ID',
+                        child: Material(
+                          color: Colors.black.withValues(alpha: 0.72),
                           borderRadius: BorderRadius.circular(AppRadius.md),
-                          onTap: () {
-                            Clipboard.setData(
-                              ClipboardData(text: widget.roomID),
-                            );
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('Room ID disalin!'),
-                                duration: Duration(seconds: 1),
-                              ),
-                            );
-                          },
-                          child: ConstrainedBox(
-                            constraints: const BoxConstraints(minHeight: 44),
-                            child: Padding(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 14,
-                                vertical: 10,
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Text(
-                                    'Room ID: ${widget.roomID}',
-                                    style: const TextStyle(
-                                      color: AppColors.textOnPrimary,
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.w600,
-                                      decoration: TextDecoration.none,
+                          child: InkWell(
+                            borderRadius: BorderRadius.circular(AppRadius.md),
+                            onTap: () {
+                              Clipboard.setData(
+                                ClipboardData(text: widget.roomID),
+                              );
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('Room ID disalin!'),
+                                  duration: Duration(seconds: 1),
+                                ),
+                              );
+                            },
+                            child: ConstrainedBox(
+                              constraints: const BoxConstraints(minHeight: 44),
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 14,
+                                  vertical: 10,
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text(
+                                      'Room ID: ${widget.roomID}',
+                                      style: const TextStyle(
+                                        color: AppColors.textOnPrimary,
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w600,
+                                        decoration: TextDecoration.none,
+                                      ),
                                     ),
-                                  ),
-                                  const SizedBox(width: AppSpacing.sm),
-                                  const Icon(
-                                    Icons.copy,
-                                    color: AppColors.textOnPrimary,
-                                    size: 18,
-                                  ),
-                                ],
+                                    const SizedBox(width: AppSpacing.sm),
+                                    const Icon(
+                                      Icons.copy,
+                                      color: AppColors.textOnPrimary,
+                                      size: 18,
+                                    ),
+                                  ],
+                                ),
                               ),
                             ),
                           ),
                         ),
                       ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }

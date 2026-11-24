@@ -38,10 +38,10 @@ class DashboardScreen extends StatelessWidget {
             return IndexedStack(
               index: state.tabIndex,
               children: [
-                const HomeTab(),
-                MapSosTab(),
-                const JoinTab(),
-                const AccountTab(),
+                const RepaintBoundary(child: HomeTab()),
+                RepaintBoundary(child: MapSosTab()),
+                const RepaintBoundary(child: JoinTab()),
+                const RepaintBoundary(child: AccountTab()),
               ],
             );
           },

@@ -45,7 +45,8 @@ void main() async {
 
     final mapsImplementation = GoogleMapsFlutterPlatform.instance;
     if (mapsImplementation is GoogleMapsFlutterAndroid) {
-      mapsImplementation.useAndroidViewSurface = true;
+      // Texture layer avoids SurfaceView ghosting across IndexedStack tabs on Impeller.
+      mapsImplementation.useAndroidViewSurface = false;
     }
 
     await Firebase.initializeApp().timeout(const Duration(seconds: 15));
