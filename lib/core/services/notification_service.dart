@@ -28,8 +28,8 @@ class NotificationService {
           "message": {
             "topic": "sos_group_$groupId",
             "notification": {
-              "title": "DARURAT (Group $groupId)",
-              "body": "$senderName butuh bantuan segera!"
+              "title": "Sinyal SOS (Grup $groupId)",
+              "body": "$senderName membutuhkan bantuan segera."
             },
             "android": {"priority": "high"},
             "data": {
