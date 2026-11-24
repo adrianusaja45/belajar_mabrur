@@ -54,6 +54,9 @@ assets/service_account.json
 !.env.example
 *.env
 android/local.properties
+android/key.properties
+*.jks
+*.keystore
 ios/Runner/AppKeys.swift
 
 # Sideload & build outputs
