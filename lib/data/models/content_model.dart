@@ -17,16 +17,27 @@ class ContentModel {
     required this.description,
   });
 
-  /// Factory method untuk mengubah JSON dari API menjadi Object Dart.
   factory ContentModel.fromJson(Map<String, dynamic> json) {
     return ContentModel(
-      id: json['id'],
-      name: json['name'] ?? '',
-      category: json['category'] ?? 'General',
-      arabic: json['arabic'] ?? '',
-      latin: json['latin'] ?? '',
-      translateId: json['translate_id'] ?? '',
-      description: json['description'] ?? '',
+      id: json['id'] is int
+          ? json['id'] as int
+          : int.tryParse(json['id']?.toString() ?? '') ?? 0,
+      name: json['name']?.toString() ?? '',
+      category: json['category']?.toString() ?? 'Umum',
+      arabic: json['arabic']?.toString() ?? '',
+      latin: json['latin']?.toString() ?? '',
+      translateId: json['translate_id']?.toString() ?? '',
+      description: json['description']?.toString() ?? '',
     );
   }
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'name': name,
+        'category': category,
+        'arabic': arabic,
+        'latin': latin,
+        'translate_id': translateId,
+        'description': description,
+      };
 }

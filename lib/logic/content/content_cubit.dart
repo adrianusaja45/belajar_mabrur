@@ -2,39 +2,44 @@ import 'package:belajar_mabrur/data/repositories/content_repository.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../core/api_exception.dart';
 import '../../data/models/content_model.dart';
 import 'content_state.dart';
 
 class ContentCubit extends Cubit<ContentState> {
   final ContentRepository repository;
-  
-  // Cache data asli agar tidak perlu hit API ulang saat filtering
+
+  // Keep unfiltered list in memory for local search and category filtering.
   List<ContentModel> _allContent = [];
+  bool _isFromCache = false;
 
   ContentCubit(this.repository) : super(ContentInitial());
 
-  /// Fungsi untuk mengambil data dari Server
-  void fetchContent() async {
-    // Safety check: Jangan emit jika widget sudah didispose
-    if (isClosed) return; 
-    
+  Future<void> fetchContent() async {
+    if (isClosed) return;
+
+    final previous = state;
+    final activeCategory =
+        previous is ContentLoaded ? previous.activeCategory : "All";
+    final searchQuery = previous is ContentLoaded ? previous.searchQuery : "";
+
     emit(ContentLoading());
     try {
-      _allContent = await repository.getContents().timeout(
-        const Duration(seconds: 10),
-        onTimeout: () => throw Exception("Server tidak merespons (Timeout)"),
-      );
-      
-      if (isClosed) return; 
-      emit(ContentLoaded(_allContent));
+      final result = await repository.getContents();
+      _allContent = result.items;
+      _isFromCache = result.fromCache;
+
+      if (isClosed) return;
+      filterContent(category: activeCategory, query: searchQuery);
     } catch (e) {
       debugPrint("Content Error: $e");
-      if (!isClosed) emit(ContentError(e.toString()));
+      final message = e is ApiException
+          ? e.message
+          : 'Gagal memuat panduan. Silakan coba lagi.';
+      if (!isClosed) emit(ContentError(message));
     }
   }
 
-  /// Fungsi lokal untuk memfilter data (Pencarian & Kategori)
-  /// Tidak memanggil API, hanya memproses _allContent
   void filterContent({String? category, String? query}) {
     if (isClosed) return;
 
@@ -42,7 +47,6 @@ class ContentCubit extends Cubit<ContentState> {
     String currentCategory = "All";
     String currentQuery = "";
 
-    // Pertahankan filter sebelumnya jika parameter null
     if (currentState is ContentLoaded) {
       currentCategory = category ?? currentState.activeCategory;
       currentQuery = query ?? currentState.searchQuery;
@@ -51,17 +55,25 @@ class ContentCubit extends Cubit<ContentState> {
       currentQuery = query ?? "";
     }
 
-    // Logika Filter
+    final normalizedQuery = currentQuery.trim().toLowerCase();
+
     List<ContentModel> filtered = _allContent.where((item) {
-      final matchCategory = currentCategory == "All" || item.category == currentCategory;
-      final matchSearch = item.name.toLowerCase().contains(currentQuery.toLowerCase());
+      final matchCategory =
+          currentCategory == "All" || item.category == currentCategory;
+      final matchSearch = normalizedQuery.isEmpty ||
+          item.name.toLowerCase().contains(normalizedQuery) ||
+          item.latin.toLowerCase().contains(normalizedQuery) ||
+          item.translateId.toLowerCase().contains(normalizedQuery);
       return matchCategory && matchSearch;
     }).toList();
 
-    emit(ContentLoaded(
-      filtered, 
-      activeCategory: currentCategory, 
-      searchQuery: currentQuery
-    ));
+    emit(
+      ContentLoaded(
+        filtered,
+        activeCategory: currentCategory,
+        searchQuery: currentQuery,
+        isFromCache: _isFromCache,
+      ),
+    );
   }
 }

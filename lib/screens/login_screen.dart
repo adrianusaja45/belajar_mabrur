@@ -1,10 +1,10 @@
-import 'package:belajar_mabrur/data/repositories/auth_repository.dart';
-import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+
+import '../core/theme/app_theme.dart';
 import '../logic/auth/auth_bloc.dart';
+import 'dashboard_screen.dart';
 import 'register_screen.dart';
-import 'dashboard_screen.dart'; 
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -14,126 +14,200 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
+  final _formKey = GlobalKey<FormState>();
   final TextEditingController usernameController = TextEditingController();
   final TextEditingController passwordController = TextEditingController();
-  bool _isObscure = true; 
+  bool _isObscure = true;
+
+  @override
+  void dispose() {
+    usernameController.dispose();
+    passwordController.dispose();
+    super.dispose();
+  }
+
+  void _submitLogin() {
+    if (_formKey.currentState?.validate() != true) return;
+    context.read<AuthBloc>().add(
+          LoginRequested(
+            usernameController.text.trim(),
+            passwordController.text,
+          ),
+        );
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: SafeArea(
         child: BlocConsumer<AuthBloc, AuthState>(
-          listener: (context, state) async {
+          listener: (context, state) {
             if (state is AuthSuccess) {
-              
-              // 1. Ambil Repo (Synchronous - Aman)
-              final authRepo = context.read<AuthRepository>();
-              
-              // 2. Operasi Async (Menimbulkan Gap)
-              final groupId = await authRepo.getGroupId();
-              
-              // 3. CEK CONTEXT.MOUNTED (Perbaikan Utama)
-              // Pastikan context masih valid setelah await selesai
-              if (!context.mounted) return;
-              
-              // Nama topik dinamis
-              final topicName = "sos_group_$groupId"; 
-
-              if (state.role == 'host') {
-                await FirebaseMessaging.instance.subscribeToTopic(topicName);
-                debugPrint("HOST: Subscribed ke topik $topicName");
-              } else {
-                await FirebaseMessaging.instance.unsubscribeFromTopic(topicName);
-                debugPrint("USER: Unsubscribed dari topik $topicName");
-              }
-
-              // Karena ada await lagi di atas (Firebase), cek mounted lagi jika paranoid,
-              // tapi biasanya context.mounted sebelumnya sudah cukup untuk memutus flow jika widget mati.
-              // Namun untuk strict linting:
-              if (!context.mounted) return;
-
               ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text(state.message), backgroundColor: Colors.green),
+                SnackBar(
+                  content: Text(state.message),
+                  backgroundColor: AppColors.success,
+                ),
               );
-              
+
               Navigator.pushReplacement(
                 context,
-                MaterialPageRoute(builder: (_) => const DashboardScreen())
+                MaterialPageRoute(builder: (_) => const DashboardScreen()),
               );
-            }
-            
-            else if (state is AuthFailure) {
+            } else if (state is AuthFailure) {
               ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text(state.error), backgroundColor: const Color(0xFFA01C1C)),
+                SnackBar(
+                  content: Text(state.error),
+                  backgroundColor: AppColors.error,
+                ),
               );
             }
           },
           builder: (context, state) {
-            if (state is AuthLoading) {
-              return const Center(child: CircularProgressIndicator());
-            }
+            final isLoading = state is AuthLoading;
 
             return Center(
               child: SingleChildScrollView(
-                padding: const EdgeInsets.all(20.0),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Image.asset('assets/logo_login.png', height: 100),
-                    const SizedBox(height: 30),
-                    const Text(
-                      "Silakan Login",
-                      style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xFFA01C1C)),
-                    ),
-                    const SizedBox(height: 20),
-                    TextField(
-                      controller: usernameController,
-                      decoration: const InputDecoration(
-                        labelText: "Username",
-                        border: OutlineInputBorder(),
-                        prefixIcon: Icon(Icons.person),
+                padding: const EdgeInsets.all(AppSpacing.xl),
+                child: Form(
+                  key: _formKey,
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Image.asset(
+                        'assets/logo_login.png',
+                        height: 100,
+                        semanticLabel: 'Logo Belajar Mabrur',
                       ),
-                    ),
-                    const SizedBox(height: 15),
-                    TextField(
-                      controller: passwordController,
-                      decoration: InputDecoration(
-                        labelText: "Password",
-                        border: const OutlineInputBorder(),
-                        prefixIcon: const Icon(Icons.lock),
-                        suffixIcon: IconButton(
-                          icon: Icon(_isObscure ? Icons.visibility : Icons.visibility_off, color: Colors.grey),
-                          onPressed: () => setState(() => _isObscure = !_isObscure),
+                      const SizedBox(height: 28),
+                      const Text(
+                        "Masuk ke Belajar Mabrur",
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.primary,
                         ),
                       ),
-                      obscureText: _isObscure,
-                    ),
-                    const SizedBox(height: 20),
-                    SizedBox(
-                      width: double.infinity,
-                      height: 50,
-                      child: ElevatedButton(
-                        style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFA01C1C)),
-                        onPressed: () {
-                          context.read<AuthBloc>().add(
-                                LoginRequested(usernameController.text, passwordController.text),
-                              );
+                      const SizedBox(height: AppSpacing.sm),
+                      const Text(
+                        "Akses panduan doa, ruang audio, dan bantuan SOS grup.",
+                        textAlign: TextAlign.center,
+                        style: TextStyle(color: AppColors.textSecondary),
+                      ),
+                      const SizedBox(height: AppSpacing.xl),
+                      TextFormField(
+                        controller: usernameController,
+                        enabled: !isLoading,
+                        textInputAction: TextInputAction.next,
+                        decoration: const InputDecoration(
+                          labelText: "Nama Pengguna",
+                          prefixIcon: Icon(Icons.person_outline),
+                        ),
+                        validator: (value) {
+                          if (value == null || value.trim().isEmpty) {
+                            return 'Nama pengguna tidak boleh kosong';
+                          }
+                          return null;
                         },
-                        child: const Text("LOGIN", style: TextStyle(color: Colors.white)),
                       ),
-                    ),
-                    const SizedBox(height: 20),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Text("Belum punya akun? "),
-                        GestureDetector(
-                          onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const RegisterScreen())),
-                          child: const Text("Register", style: TextStyle(color: Color(0xFFA01C1C), fontWeight: FontWeight.bold)),
+                      const SizedBox(height: AppSpacing.lg),
+                      TextFormField(
+                        controller: passwordController,
+                        enabled: !isLoading,
+                        textInputAction: TextInputAction.done,
+                        onFieldSubmitted: (_) {
+                          if (!isLoading) _submitLogin();
+                        },
+                        decoration: InputDecoration(
+                          labelText: "Kata Sandi",
+                          prefixIcon: const Icon(Icons.lock_outline),
+                          suffixIcon: IconButton(
+                            tooltip: _isObscure
+                                ? 'Tampilkan kata sandi'
+                                : 'Sembunyikan kata sandi',
+                            icon: Icon(
+                              _isObscure
+                                  ? Icons.visibility
+                                  : Icons.visibility_off,
+                              color: AppColors.textSecondary,
+                            ),
+                            onPressed: () =>
+                                setState(() => _isObscure = !_isObscure),
+                          ),
                         ),
-                      ],
-                    ),
-                  ],
+                        obscureText: _isObscure,
+                        validator: (value) {
+                          if (value == null || value.isEmpty) {
+                            return 'Kata sandi tidak boleh kosong';
+                          }
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: AppSpacing.xl),
+                      SizedBox(
+                        width: double.infinity,
+                        height: 50,
+                        child: ElevatedButton(
+                          onPressed: isLoading ? null : _submitLogin,
+                          child: isLoading
+                              ? const Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    SizedBox(
+                                      width: 20,
+                                      height: 20,
+                                      child: CircularProgressIndicator(
+                                        color: AppColors.textOnPrimary,
+                                        strokeWidth: 2.5,
+                                      ),
+                                    ),
+                                    SizedBox(width: AppSpacing.md),
+                                    Text(
+                                      "Memproses...",
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ],
+                                )
+                              : const Text(
+                                  "Masuk",
+                                  style: TextStyle(fontWeight: FontWeight.bold),
+                                ),
+                        ),
+                      ),
+                      const SizedBox(height: AppSpacing.md),
+                      Wrap(
+                        alignment: WrapAlignment.center,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        children: [
+                          const Text(
+                            "Belum punya akun?",
+                            style: TextStyle(color: AppColors.textPrimary),
+                          ),
+                          TextButton(
+                            onPressed: isLoading
+                                ? null
+                                : () => Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (context) =>
+                                            const RegisterScreen(),
+                                      ),
+                                    ),
+                            child: const Text(
+                              "Daftar Akun",
+                              style: TextStyle(
+                                color: AppColors.primary,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
               ),
             );

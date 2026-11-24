@@ -28,12 +28,6 @@
     <key>NSMicrophoneUsageDescription</key>
     <string>Aplikasi memerlukan akses mikrofon agar Anda dapat berbicara dalam ruangan audio conference.</string>
     
-    <key>NSCameraUsageDescription</key>
-    <string>Aplikasi memerlukan akses kamera untuk mengambil foto profil atau memindai kode.</string>
-    
-    <key>NSPhotoLibraryUsageDescription</key>
-    <string>Aplikasi memerlukan akses galeri foto untuk memilih foto profil Anda.</string>
-    
     <key>NSLocationWhenInUseUsageDescription</key>
     <string>Aplikasi memerlukan lokasi Anda saat ini untuk mengirim sinyal SOS dan menampilkannya di peta.</string>
     <key>NSLocationAlwaysAndWhenInUseUsageDescription</key>

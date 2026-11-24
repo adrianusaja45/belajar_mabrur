@@ -1,8 +1,26 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("kotlin-android")
     id("dev.flutter.flutter-gradle-plugin")
-    id("com.google.gms.google-services") // Pastikan Anda memang pakai Firebase
+    id("com.google.gms.google-services")
+}
+
+// Read Google Maps API Key from local.properties (gitignored)
+val localProperties = Properties()
+val localPropertiesFile = rootProject.file("local.properties")
+if (localPropertiesFile.exists()) {
+    localPropertiesFile.inputStream().use { localProperties.load(it) }
+}
+val googleMapsApiKey: String = localProperties.getProperty("GOOGLE_MAPS_API_KEY", "")
+
+// Optional release signing config from android/key.properties (gitignored)
+val keystoreProperties = Properties()
+val keystorePropertiesFile = rootProject.file("key.properties")
+val hasReleaseKeystore = keystorePropertiesFile.exists()
+if (hasReleaseKeystore) {
+    keystorePropertiesFile.inputStream().use { keystoreProperties.load(it) }
 }
 
 android {
@@ -26,19 +44,31 @@ android {
 
     defaultConfig {
         applicationId = "com.example.belajar_mabrur"
-        // Menggunakan nilai default dari Flutter jika null
         minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
 
-        // --- FIX UTAMA: MULTIDEX ---
         multiDexEnabled = true
+
+        // Inject API key into AndroidManifest.xml
+        manifestPlaceholders["GOOGLE_MAPS_API_KEY"] = googleMapsApiKey
     }
 
     lint {
         checkReleaseBuilds = false
         abortOnError = false
+    }
+
+    signingConfigs {
+        if (hasReleaseKeystore) {
+            create("release") {
+                keyAlias = keystoreProperties.getProperty("keyAlias")
+                keyPassword = keystoreProperties.getProperty("keyPassword")
+                storeFile = file(keystoreProperties.getProperty("storeFile"))
+                storePassword = keystoreProperties.getProperty("storePassword")
+            }
+        }
     }
 
     buildTypes {
@@ -49,22 +79,12 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
-            signingConfig = signingConfigs.getByName("debug")
-        }
-    }
-
-    // --- SKRIP GANTI NAMA APK ---
-    applicationVariants.all {
-        val variant = this
-        variant.outputs
-            .map { it as com.android.build.gradle.internal.api.BaseVariantOutputImpl }
-            .forEach { output ->
-                if (variant.buildType.name == "release") {
-                    val newName = "Belajar Mabrur.apk"
-                    output.outputFileName = newName
-                    println(">> Mengubah nama APK menjadi: $newName")
-                }
+            signingConfig = if (hasReleaseKeystore) {
+                signingConfigs.getByName("release")
+            } else {
+                signingConfigs.getByName("debug")
             }
+        }
     }
 }
 
@@ -73,12 +93,7 @@ flutter {
 }
 
 dependencies {
-    // Firebase
     implementation(platform("com.google.firebase:firebase-bom:33.7.0"))
-    
-    // Desugaring (Wajib untuk Java 17 features di Android lama)
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
-    
-    // Multidex (Wajib jika coreLibraryDesugaring aktif)
-    implementation("androidx.multidex:multidex:2.0.1") 
+    implementation("androidx.multidex:multidex:2.0.1")
 }

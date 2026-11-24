@@ -1,31 +1,23 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 
+import 'theme/app_theme.dart';
+
 class AppConstants {
-  // --- KONFIGURASI WARNA (HEX) ---
+  static const Color primaryColor = AppColors.primary;
+  static const Color secondaryColor = AppColors.accentGold;
 
-  // Warna Utama (Merah Albirr)
-  static const Color primaryColor = Color(0xFFA01C1C);
+  static const Color backgroundColor = AppColors.background;
+  static const Color surfaceColor = AppColors.surface;
 
-  // Warna Aksen/Secondary (Bisa disamakan atau dibedakan)
-  static const Color secondaryColor = Color(0xFFA01C1C);
+  static const Color textPrimary = AppColors.textPrimary;
+  static const Color textSecondary = AppColors.textSecondary;
+  static const Color textWhite = AppColors.textOnPrimary;
 
-  // Warna Background
-  static const Color backgroundColor = Colors.white;
-  static const Color surfaceColor =
-      Color(0xFFF5F5F5); // Abu-abu sangat muda untuk Card
+  static const Color errorColor = AppColors.error;
+  static const Color successColor = AppColors.success;
+  static const Color warningColor = AppColors.warning;
 
-  // Warna Text
-  static const Color textPrimary = Colors.black87;
-  static const Color textSecondary = Colors.grey;
-  static const Color textWhite = Colors.white;
-
-  // Warna Status
-  static const Color errorColor = Colors.red;
-  static const Color successColor = Colors.green;
-  static const Color warningColor = Colors.amber;
-
-  // --- ZEGO CLOUD CONFIG ---
   static int get zegoAppID {
     final envVal = dotenv.env['ZEGO_APP_ID'];
     if (envVal != null) {

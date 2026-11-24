@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:zego_uikit_prebuilt_live_audio_room/zego_uikit_prebuilt_live_audio_room.dart';
 
 import '../../core/constants.dart';
+import '../../core/theme/app_theme.dart';
 
 class ConferenceConfig {
   static ZegoUIKitPrebuiltLiveAudioRoomConfig get({
@@ -16,23 +17,13 @@ class ConferenceConfig {
         ? ZegoUIKitPrebuiltLiveAudioRoomConfig.host()
         : ZegoUIKitPrebuiltLiveAudioRoomConfig.audience();
 
-// Mic & Speaker
-
     config.turnOnMicrophoneWhenJoining = isHost;
 
     config.useSpeakerWhenJoining = true;
 
-// ============================================
-
-// KONFIGURASI MINIMIZE/PIP BAWAAN ZEGO
-
-// ============================================
-
     config.topMenuBar.buttons = [
       ZegoLiveAudioRoomMenuBarButtonName.minimizingButton,
     ];
-
-// Bottom Menu Bar
 
     config.bottomMenuBar.hostButtons = const [
       ZegoLiveAudioRoomMenuBarButtonName.toggleMicrophoneButton,
@@ -53,22 +44,18 @@ class ConferenceConfig {
       ZegoLiveAudioRoomMenuBarButtonName.leaveButton,
     ];
 
-// Background
-
     config.background = Container(
       decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            AppConstants.primaryColor.withOpacity(0.1),
-            AppConstants.primaryColor.withOpacity(0.05),
+            AppConstants.primaryColor.withValues(alpha: 0.1),
+            AppConstants.primaryColor.withValues(alpha: 0.05),
           ],
         ),
       ),
     );
-
-// Seat Layout
 
     config.seat.layout = ZegoLiveAudioRoomLayoutConfig(
       rowConfigs: [
@@ -79,17 +66,15 @@ class ConferenceConfig {
       rowSpacing: 16,
     );
 
-// Seat Background
-
     config.seat.backgroundBuilder = (_, __, ___, ____) {
       return Container(
         decoration: BoxDecoration(
           color: AppConstants.surfaceColor,
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: Colors.grey.shade300, width: 1),
+          border: Border.all(color: AppColors.borderSubtle, width: 1),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.05),
+              color: Colors.black.withValues(alpha: 0.05),
               blurRadius: 4,
               offset: const Offset(0, 2),
             ),
@@ -97,8 +82,6 @@ class ConferenceConfig {
         ),
       );
     };
-
-// Avatar Builder
 
     config.seat.avatarBuilder = (context, size, user, __) {
       if (user == null) return const SizedBox();
@@ -115,7 +98,8 @@ class ConferenceConfig {
           children: [
             CircleAvatar(
               radius: avatarRadius,
-              backgroundColor: AppConstants.primaryColor.withOpacity(0.15),
+              backgroundColor:
+                  AppConstants.primaryColor.withValues(alpha: 0.15),
               child: Text(
                 user.name.isNotEmpty ? user.name[0].toUpperCase() : "?",
                 style: TextStyle(
@@ -138,7 +122,7 @@ class ConferenceConfig {
                     border: Border.all(color: Colors.white, width: 2),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withOpacity(0.2),
+                        color: Colors.black.withValues(alpha: 0.2),
                         blurRadius: 2,
                         offset: const Offset(0, 1),
                       ),
@@ -159,8 +143,6 @@ class ConferenceConfig {
         ),
       );
     };
-
-// Sound Wave
 
     config.seat.showSoundWaveInAudioMode = true;
 

@@ -1,199 +1,151 @@
-# 🕋 Belajar Mabrur (Albirr Mobile App)
+# Belajar Mabrur (Albirr Mobile App)
 
 <p align="center">
   <img src="assets/logo_splashcreen.png" alt="Belajar Mabrur Logo" width="140"/>
 </p>
 
 <p align="center">
-  <strong>Aplikasi Mobile Pendamping Ibadah Haji & Umrah Terpadu</strong><br>
-  <em>Panduan Manasik Interaktif, Audio Room Bimbingan Real-Time, & Sistem Darurat SOS Terintegrasi</em>
-</p>
-
-<p align="center">
-  <img src="https://img.shields.io/badge/Flutter-%3E%3D3.0.0-02569B?style=for-the-badge&logo=flutter&logoColor=white" alt="Flutter" />
-  <img src="https://img.shields.io/badge/Dart-%3E%3D3.0.0-0175C2?style=for-the-badge&logo=dart&logoColor=white" alt="Dart" />
-  <img src="https://img.shields.io/badge/State_Management-BLoC-blue?style=for-the-badge&logo=bloc&logoColor=white" alt="BLoC" />
-  <img src="https://img.shields.io/badge/Live_Audio-ZEGOCLOUD-00B2FF?style=for-the-badge" alt="ZEGOCLOUD" />
-  <img src="https://img.shields.io/badge/Maps-Google_Maps-4285F4?style=for-the-badge&logo=googlemaps&logoColor=white" alt="Google Maps" />
-  <img src="https://img.shields.io/badge/Cloud_Messaging-Firebase_FCM-FFA611?style=for-the-badge&logo=firebase&logoColor=white" alt="Firebase FCM" />
+  <strong>Aplikasi Mobile Pendamping Ibadah Haji dan Umrah</strong><br>
+  <em>Panduan Doa Offline, Ruang Audio Bimbingan Langsung, dan Peta Darurat SOS Real-Time</em>
 </p>
 
 ---
 
-## 📌 Tentang Proyek
+## Tentang Proyek
 
-**Belajar Mabrur** (Albirr) adalah aplikasi mobile berbasis Flutter yang dirancang untuk mempermudah jamaah Haji dan Umrah dalam melaksanakan rangkaian ibadah secara mandiri maupun terpimpin. Aplikasi ini juga menghubungkan jamaah secara langsung dengan pembimbing ibadah (*Muthawif* / *Tour Leader* / *Host*) melalui komunikasi suara langsung dan sistem pemantauan darurat berbasis lokasi.
+**Belajar Mabrur** (Albirr) adalah aplikasi mobile berbasis Flutter untuk membantu jamaah Haji dan Umrah menjalankan rangkaian ibadah secara mandiri maupun terpimpin. Aplikasi ini menghubungkan jamaah dengan pembimbing ibadah (*Muthawif* / *Host*) melalui ruang suara langsung dan pemantauan sinyal darurat SOS berbasis lokasi.
 
----
-
-## ✨ Fitur Utama
-
-### 1. 📖 Panduan Manasik & Kumpulan Doa (Home Tab)
-- **Doa & Tata Cara Lengkap**: Berisi panduan ibadah terstruktur mulai dari *Ihram*, *Thawaf*, *Sa'i*, hingga *Tahallul*.
-- **Teks Multi-Format**: Menyajikan lafaz doa dalam aksara Arab, transliterasi Latin, terjemahan Bahasa Indonesia, serta penjelasan/hukum terkait.
-- **Pencarian & Filter Cepat**: Memudahkan pencarian doa berdasarkan kata kunci atau kategori manasik.
-
-### 2. 🚨 Tombol Darurat & Pelacakan Lokasi (SOS Map Tab)
-- **One-Tap Emergency SOS**: Mengirimkan koordinat GPS terkini jamaah yang tersesat atau membutuhkan bantuan segera.
-- **FCM Broadcast Notification**: Notifikasi darurat dikirimkan secara otomatis melalui Firebase Cloud Messaging ke pembimbing (*Host*) dalam grup terkait.
-- **Google Maps Integration**: Peta interaktif yang menampilkan posisi jamaah saat ini dan penanda lokasi darurat.
-- **Navigasi & Riwayat SOS**: Pembimbing (*Host*) dapat melihat riwayat laporan darurat dan langsung mengarahkan rute peta ke lokasi jamaah.
-
-### 3. 🎙️ Live Audio Conference / Meet Room (Meet Tab)
-- **Real-Time Voice Streaming**: Bimbingan manasik suara langsung (*audio tour guide*) bertenaga **ZEGOCLOUD Live Audio Room**.
-- **Multi-Role Support**: 
-  - **Host (Pembimbing/Muthawif)**: Membuka room, memandu suara, dan mengelola peserta.
-  - **Audience (Jamaah)**: Bergabung ke dalam room dengan memasukkan Room ID dan dapat mengajukan izin berbicara (*seat request*).
-- **Mini Overlay Picture-in-Picture (PiP)**: Jamaah dapat mengecilkan tampilan audio room ke mode melayang (floating overlay) dan tetap mendengarkan audio sambil membuka panduan doa atau peta.
-
-### 4. 👤 Manajemen Akun & Autentikasi (Account Tab)
-- **Registrasi & Login**: Autentikasi pengguna berbasis REST API dan token Bearer yang tersimpan aman pada lokal perangkat.
-- **Profil Pengguna**: Manajemen data profil (Nama, Username, Peran/Role) dan pembaruan kata sandi.
-- **Dukungan Role**: Memisahkan antarmuka dan hak akses antara akun `user` (jamaah) dan `host` (pembimbing).
+Arah desain antarmuka terdokumentasi di [DESIGN.md](DESIGN.md) dan panduan kerja pengembangan di [AGENTS.md](AGENTS.md).
 
 ---
 
-## 🏗️ Arsitektur Proyek
+## Fitur Utama
 
-Proyek ini dibangun menggunakan arsitektur berlapis (*Layered Architecture*) dengan pemisahan tanggung jawab (*Separation of Concerns*) berbasis **BLoC / Cubit Pattern**:
+### 1. Panduan Doa dan Manasik (Tab Panduan)
+- **Kumpulan doa per tahapan:** mencakup kategori *Ihram*, *Thawaf*, *Sa'i*, dan *Tahallul*.
+- **Teks Arab RTL dan pengatur huruf:** lafaz Arab ditampilkan rata kanan (`TextDirection.rtl`, tinggi baris `1.9`) lengkap dengan transliterasi Latin, terjemahan Bahasa Indonesia, keterangan, serta tombol pengatur ukuran huruf `A-` / `A+` yang tersimpan di perangkat.
+- **Cache doa offline:** daftar doa disimpan otomatis di `SharedPreferences` sehingga tetap dapat dibaca ketika perangkat berada di luar jangkauan sinyal, lengkap dengan auto-login sesi tersimpan saat offline.
+- **Pencarian dan filter kategori:** mendukung pencarian berdasarkan judul, transliterasi, atau terjemahan, serta reset filter satu ketukan.
 
-```
+### 2. Peta Darurat dan Pelacakan Lokasi (Tab Peta SOS)
+- **Konfirmasi cepat SOS (Jamaah):** mencegah pengiriman darurat tidak sengaja melalui dialog konfirmasi singkat sebelum mengirim koordinat GPS.
+- **Pengiriman ganda FCM dan Firestore:** mengirim notifikasi darurat melalui Firebase Cloud Messaging sekaligus mencatat laporan ke koleksi `sos_reports` Firestore (kegagalan Firestore tidak memblokir pengiriman FCM).
+- **Stream riwayat real-time (Pembimbing):** pembimbing memantau laporan SOS grup secara langsung melalui stream Firestore tanpa perlu memuat ulang aplikasi.
+- **Tombol rute Google Maps:** membuka rute langsung menuju koordinat jamaah di aplikasi Google Maps melalui `url_launcher`, selain fokus penanda pada peta dalam aplikasi.
+
+### 3. Ruang Audio Bimbingan Langsung (Tab Ruang Audio)
+- **Bimbingan suara real-time:** komunikasi suara langsung berbasis ZEGOCLOUD Live Audio Room.
+- **Pemisahan peran:** pembimbing (*Host*) dapat membuka ruang suara dan mengelola peserta, sedangkan jamaah bergabung dengan ID Ruang dan dapat meminta izin berbicara.
+- **Mode perkecil (Picture-in-Picture):** jamaah dapat memperkecil ruang audio ke overlay mengambang agar tetap mendengarkan bimbingan sambil membuka panduan doa atau peta SOS.
+
+### 4. Manajemen Akun dan Autentikasi (Tab Akun)
+- **Masuk dan daftar akun:** autentikasi berbasis REST API dengan penyimpanan token menggunakan `flutter_secure_storage`.
+- **Profil dan kata sandi:** pembimbing dapat mengubah data profil dan kata sandi langsung dari aplikasi.
+- **Pengaturan peran:** memisahkan hak akses antarmuka antara peran Jamaah (`user`) dan Pembimbing (`host`).
+
+---
+
+## Arsitektur Proyek
+
+Proyek ini memakai arsitektur berlapis dengan manajemen state **BLoC / Cubit**:
+
+```text
 belajar_mabrur/
-├── assets/                          # File aset gambar, logo, dan kredensial
-│   ├── logo_apk.png                 # Logo aplikasi / icon launcher
-│   ├── logo_login.png               # Logo halaman login/register
-│   └── logo_splashcreen.png         # Logo splash screen
+├── assets/                          # Aset logo aplikasi dan kredensial lokal (gitignored)
 ├── lib/
-│   ├── core/                        # Konfigurasi inti, konstanta, & helper services
-│   │   ├── api_config.dart          # Konfigurasi endpoint REST API & header
-│   │   ├── constants.dart           # Konfigurasi warna tema & Zego Cloud
-│   │   └── services/
-│   │       ├── location_services.dart     # Service GPS & geolokasi
-│   │       └── notification_service.dart  # Service pengiriman notifikasi FCM HTTP v1
-│   ├── data/                        # Lapisan data (Models & Repositories)
-│   │   ├── models/
-│   │   │   └── content_model.dart         # Model data doa & panduan ibadah
-│   │   └── repositories/
-│   │       ├── auth_repository.dart       # Pengelolaan login, register, & token sesi
-│   │       └── content_repository.dart    # Pengambilan data konten dari backend
-│   ├── logic/                       # State Management (BLoC & Cubit)
+│   ├── core/                        # Konfigurasi API, tema WCAG AA, exception, & services
+│   │   ├── api_config.dart
+│   │   ├── api_exception.dart
+│   │   ├── constants.dart
+│   │   ├── services/
+│   │   │   ├── location_services.dart
+│   │   │   └── notification_service.dart
+│   │   └── theme/
+│   │       └── app_theme.dart
+│   ├── data/
+│   │   ├── models/                  # ContentModel, UserModel
+│   │   └── repositories/            # AuthRepository, ContentRepository, SosRepository
+│   ├── logic/
 │   │   ├── auth/                    # AuthBloc, AuthEvent, AuthState
 │   │   ├── content/                 # ContentCubit, ContentState
-│   │   └── dashboard/               # DashboardCubit, DashboardState (Tab & Riwayat SOS)
-│   ├── meet/                        # Konfigurasi audio conference
-│   │   └── conference_config.dart   # Konfigurasi UI & layout Zego Live Audio Room
-│   ├── screens/                     # Lapisan UI (Views & Pages)
-│   │   ├── account_tab.dart         # Halaman profil, edit data, ganti password, logout
-│   │   ├── audio_room/              # Layar ZEGOCLOUD Live Audio Room & Controller
-│   │   ├── dashboard_screen.dart    # Shell navigasi utama (Bottom Navigation)
-│   │   ├── home_tab.dart            # Daftar doa & filter kategori manasik
-│   │   ├── join_tab.dart            # Halaman gabung / buat audio room
-│   │   ├── login_screen.dart        # Halaman masuk akun
-│   │   ├── map_sos_tab.dart         # Peta Google Maps & tombol SOS darurat
-│   │   ├── register_screen.dart     # Halaman pendaftaran akun baru
-│   │   └── splash_screen.dart       # Halaman awal & inisialisasi permission
-│   └── main.dart                    # Entry point aplikasi & konfigurasi background handler
-├── .env.example                     # Contoh template environment variables
-├── pubspec.yaml                     # Manifest dependensi Flutter
-└── README.md                        # Dokumentasi proyek
+│   │   └── dashboard/               # DashboardCubit, DashboardState
+│   ├── meet/
+│   │   └── conference_config.dart   # Konfigurasi UI & layout ruang audio
+│   ├── screens/                     # Layar aplikasi (Splash, Login, Register, Dashboard, Tabs, AudioRoom)
+│   └── main.dart                    # Entry point, setup FCM, dan overlay PiP
+├── test/
+│   ├── unit/                        # Unit test model, AuthBloc, cache doa offline, DashboardCubit
+│   └── widget_test.dart             # Widget test layar utama, R-27 states, Arab RTL, A-/A+
+├── DESIGN.md                        # Spesifikasi desain, palet WCAG AA, dan dial UI
+├── AGENTS.md                        # Panduan teknis, batasan Zego, dan standar kualitas
+├── .env.example                     # Template environment variables
+└── pubspec.yaml                     # Manifest dependensi Flutter
 ```
 
 ---
 
-## 🛠️ Tech Stack & Dependensi
+## Tech Stack dan Dependensi
 
 | Kategori | Paket / Teknologi | Keterangan |
 |---|---|---|
-| **Framework** | [Flutter](https://flutter.dev/) (>= 3.0.0) | Cross-platform mobile SDK (Android & iOS) |
-| **State Management** | [`flutter_bloc`](https://pub.dev/packages/flutter_bloc) | BLoC pattern & Cubit untuk pengelolaan state reaktif |
-| **Audio Room & Streaming** | [`zego_uikit_prebuilt_live_audio_room`](https://pub.dev/packages/zego_uikit_prebuilt_live_audio_room) | SDK Live Audio Room dengan fitur PIP Mini Overlay |
-| **Maps & Lokasi** | [`google_maps_flutter`](https://pub.dev/packages/google_maps_flutter), [`geolocator`](https://pub.dev/packages/geolocator) | Integrasi peta Google Maps & pengambilan koordinat GPS |
-| **Push Notification & SOS** | [`firebase_messaging`](https://pub.dev/packages/firebase_messaging), [`flutter_local_notifications`](https://pub.dev/packages/flutter_local_notifications), [`googleapis_auth`](https://pub.dev/packages/googleapis_auth) | Notifikasi push FCM dan pengiriman HTTP v1 API via Service Account |
-| **Networking & HTTP** | [`http`](https://pub.dev/packages/http) | Klien HTTP untuk interaksi dengan backend REST API |
-| **Local Storage** | [`shared_preferences`](https://pub.dev/packages/shared_preferences) | Penyimpanan lokal token sesi, role, dan riwayat ID |
-| **Environment Config** | [`flutter_dotenv`](https://pub.dev/packages/flutter_dotenv) | Memuat konfigurasi sensitif dari file `.env` |
-| **Permissions** | [`permission_handler`](https://pub.dev/packages/permission_handler) | Pengelolaan izin lokasi, mikrofon, kamera, dan notifikasi |
+| **Framework** | Flutter (`>= 3.0.0`) | SDK mobile lintas platform (Android dan iOS) |
+| **State Management** | `flutter_bloc`, `equatable` | Pengelolaan state reaktif untuk auth, konten, dan dashboard |
+| **Ruang Audio** | `zego_uikit_prebuilt_live_audio_room` | Streaming suara langsung dengan mode PiP mini overlay |
+| **Peta dan Lokasi** | `google_maps_flutter`, `geolocator`, `url_launcher` | Peta interaktif, GPS, dan navigasi rute ke Google Maps eksternal |
+| **Notifikasi dan Cloud** | `firebase_core`, `firebase_messaging`, `cloud_firestore`, `flutter_local_notifications`, `googleapis_auth` | Push notification SOS (FCM HTTP v1) dan stream riwayat SOS Firestore |
+| **Jaringan dan Penyimpanan** | `http`, `flutter_secure_storage`, `shared_preferences` | Klien REST API, penyimpanan token aman, cache doa offline, dan preferensi huruf |
+| **Konfigurasi dan Izin** | `flutter_dotenv`, `permission_handler` | Variabel lingkungan `.env` dan izin lokasi, mikrofon, kamera, serta notifikasi |
 
 ---
 
-## 🚀 Panduan Memulai (Getting Started)
+## Panduan Memulai
 
 ### Prasyarat
-
-Pastikan perangkat pengembangan Anda telah terpasang:
-1. **Flutter SDK** versi `>= 3.0.0` ([Panduan Instalasi Flutter](https://docs.flutter.dev/get-started/install))
-2. **Dart SDK** versi `>= 3.0.0`
-3. **Android Studio** (dengan Android SDK & Emulator) atau **Xcode** (untuk pengembangan macOS/iOS)
-4. **Git**
+1. **Flutter SDK** `>= 3.0.0` dan **Dart SDK** `>= 3.0.0`.
+2. **Android Studio** (Android SDK / perangkat fisik) atau **Xcode** untuk iOS.
+3. **Git**.
 
 ### Langkah Instalasi
-
-1. **Clone Repository**
+1. **Clone repositori dan pasang dependensi:**
    ```bash
    git clone https://github.com/<your-username>/belajar_mabrur.git
    cd belajar_mabrur
-   ```
-
-2. **Beralih ke Branch Development**
-   ```bash
-   git checkout dev
-   ```
-
-3. **Pasang Dependensi**
-   ```bash
    flutter pub get
    ```
-
-4. **Konfigurasi Environment Variable (`.env`)**
-   Salin template `.env.example` menjadi `.env`:
-   ```bash
-   cp .env.example .env
-   ```
-   Buka file `.env` dan isi variabel konfigurasi yang sesuai:
+2. **Siapkan berkas `.env`** (salin dari `.env.example`, jangan di-commit):
    ```env
-   # API Configuration
    API_BASE_URL=https://albirr.web.id/api
    API_KEY=your_api_key_here
-
-   # ZEGOCLOUD Configuration
    ZEGO_APP_ID=your_zego_app_id
    ZEGO_APP_SIGN=your_zego_app_sign
    ```
-
-5. **Konfigurasi Firebase & Google Maps**
-   - **Android**:
-     - Tempatkan file `google-services.json` di dalam folder `android/app/`.
-     - Masukkan Google Maps API Key pada `android/app/src/main/AndroidManifest.xml`.
-   - **iOS**:
-     - Tempatkan file `GoogleService-Info.plist` di dalam folder `ios/Runner/`.
-   - **FCM Service Account** *(opsional untuk fitur pengiriman SOS langsung dari aplikasi)*:
-     - Tempatkan file `service_account.json` pada folder `assets/service_account.json`.
-
-6. **Jalankan Aplikasi**
+3. **Siapkan konfigurasi rahasia lokal (semua sudah masuk `.gitignore`):**
+   - **Android:** tempatkan `google-services.json` di `android/app/` dan tambahkan `GOOGLE_MAPS_API_KEY=...` di `android/local.properties`. Untuk build rilis Play Store, tambahkan `android/key.properties` dan keystore `.jks`.
+   - **iOS:** tempatkan `GoogleService-Info.plist` di `ios/Runner/`.
+   - **FCM SOS:** tempatkan `service_account.json` di `assets/service_account.json`.
+4. **Jalankan aplikasi dan pengujian:**
    ```bash
+   flutter analyze --no-pub
+   flutter test
    flutter run
    ```
 
 ---
 
-## 🔒 Izin Akses Perangkat (Permissions)
-
-Aplikasi memerlukan beberapa izin akses pada perangkat pengguna:
-- **Lokasi (`ACCESS_FINE_LOCATION`, `ACCESS_COARSE_LOCATION`)**: Digunakan untuk memperoleh koordinat akurat pada fitur darurat SOS dan Google Maps.
-- **Mikrofon (`RECORD_AUDIO`)**: Digunakan untuk siaran suara pada fitur Live Audio Room.
-- **Notifikasi (`POST_NOTIFICATIONS`)**: Digunakan untuk menerima pemberitahuan darurat SOS dan pesan penting.
-- **Internet & Jaringan (`INTERNET`, `ACCESS_NETWORK_STATE`)**: Digunakan untuk komunikasi REST API, ZEGOCLOUD, dan Firebase.
+## Izin Akses Perangkat
+- **Lokasi (`ACCESS_FINE_LOCATION`, `ACCESS_COARSE_LOCATION`):** memperoleh koordinat GPS untuk peta dan sinyal darurat SOS.
+- **Mikrofon (`RECORD_AUDIO`):** berbicara pada ruang audio bimbingan.
+- **Notifikasi (`POST_NOTIFICATIONS`):** menerima peringatan SOS grup secara langsung.
+- **Internet dan Jaringan (`INTERNET`, `ACCESS_NETWORK_STATE`):** sinkronisasi panduan doa, autentikasi, ruang audio, dan sinyal SOS.
 
 ---
 
-## 🌿 Alur Kerja Git (Git Workflow)
-
-- `main` : Branch produksi stabil (*production ready*).
-- `dev` : Branch pengembangan utama (*development active*).
-- `feature/*` : Branch fitur baru yang akan digabungkan ke branch `dev` melalui Pull Request / Code Review.
+## Alur Kerja Git
+- `main`: branch rilis stabil.
+- `dev`: branch integrasi pengembangan.
+- `feature/*`: branch fitur atau perbaikan sebelum digabung ke `dev`.
 
 ---
 
-## 👥 Kontribusi & Lisensi
-
-Proyek ini dikembangkan untuk mendukung kelancaran dan kenyamanan ibadah jamaah Haji dan Umrah. Seluruh hak cipta dilindungi undang-undang oleh pengembang dan inisiator **Belajar Mabrur / Albirr**.
+## Lisensi
+Hak cipta dimiliki oleh pengembang dan inisiator **Belajar Mabrur / Albirr**.

@@ -1,18 +1,16 @@
 import 'package:belajar_mabrur/screens/home_tab.dart';
-import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-// IMPORT PATH DIPERBAIKI SESUAI STRUKTUR BARU
-import '../data/repositories/auth_repository.dart'; 
-import '../logic/dashboard/dashboard_cubit.dart'; // Import State Management
-import '../logic/dashboard/dashboard_state.dart';
-import '../logic/auth/auth_bloc.dart';
 
+import '../core/theme/app_theme.dart';
+import '../logic/auth/auth_bloc.dart';
+import '../logic/dashboard/dashboard_cubit.dart';
+import '../logic/dashboard/dashboard_state.dart';
 import 'account_tab.dart';
 import 'audio_room/audio_room_controller.dart';
-import 'join_tab.dart'; 
-import 'map_sos_tab.dart';
+import 'join_tab.dart';
 import 'login_screen.dart';
+import 'map_sos_tab.dart';
 
 class DashboardScreen extends StatelessWidget {
   const DashboardScreen({super.key});
@@ -21,71 +19,68 @@ class DashboardScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return BlocListener<AuthBloc, AuthState>(
       listener: (context, state) async {
-        
-        // 1. Redirect jika Logout
-        if (state is AuthInitial) {
-          // CLEANUP: End Audio Room session jika ada
-          if (AudioRoomController.instance.roomID != null) {
-            AudioRoomController.instance.leaveRoom();
+        if (state is AuthUnauthenticated || state is AuthInitial) {
+          await context.read<DashboardCubit>().resetOnLogout();
+          if (context.mounted && AudioRoomController.instance.isRoomActive) {
+            await AudioRoomController.instance.leaveRoom(context);
           }
 
+          if (!context.mounted) return;
           Navigator.pushAndRemoveUntil(
             context,
             MaterialPageRoute(builder: (context) => const LoginScreen()),
             (route) => false,
           );
         }
-
-        // 2. Logic Subscribe FCM Dinamis
-        if (state is AuthSuccess) {
-          final authRepo = context.read<AuthRepository>();
-          String groupId = await authRepo.getGroupId();
-          String groupTopic = "sos_group_$groupId";
-
-          if (state.role == 'host') {
-            await FirebaseMessaging.instance.subscribeToTopic(groupTopic);
-            debugPrint("Dashboard: Host Subscribed ke topik: $groupTopic");
-          } else {
-            await FirebaseMessaging.instance.unsubscribeFromTopic(groupTopic);
-            debugPrint("Dashboard: User Unsubscribed dari topik: $groupTopic");
-          }
-        }
       },
       child: Scaffold(
         body: BlocBuilder<DashboardCubit, DashboardState>(
-          builder:  (context, state) {
+          builder: (context, state) {
             return IndexedStack(
               index: state.tabIndex,
-              children: [
-                const HomeTab(),    
-                MapSosTab(),  
-                const JoinTab(),    
-                const AccountTab(), 
+              children: const [
+                RepaintBoundary(child: HomeTab()),
+                RepaintBoundary(child: MapSosTab()),
+                RepaintBoundary(child: JoinTab()),
+                RepaintBoundary(child: AccountTab()),
               ],
             );
           },
         ),
         bottomNavigationBar: BlocBuilder<DashboardCubit, DashboardState>(
-          builder:  (context, state) {
+          builder: (context, state) {
             return Container(
               decoration: const BoxDecoration(
-                border:  Border(top: BorderSide(color: Colors.black12, width: 0.5)),
+                border: Border(
+                  top: BorderSide(color: AppColors.borderSubtle, width: 1),
+                ),
               ),
               child: BottomNavigationBar(
                 currentIndex: state.tabIndex,
                 onTap: (index) {
                   context.read<DashboardCubit>().changeTab(index);
                 },
-                type: BottomNavigationBarType.fixed,
-                backgroundColor: Colors.white,
-                selectedItemColor: const Color(0xFFA01C1C),
-                unselectedItemColor: Colors.grey,
-                showUnselectedLabels: true,
                 items: const [
-                  BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
-                  BottomNavigationBarItem(icon: Icon(Icons.map_outlined), label: 'SOS Map'),
-                  BottomNavigationBarItem(icon: Icon(Icons.video_call), label: 'Meet'),
-                  BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Account'),
+                  BottomNavigationBarItem(
+                    icon: Icon(Icons.menu_book_outlined),
+                    activeIcon: Icon(Icons.menu_book),
+                    label: 'Panduan',
+                  ),
+                  BottomNavigationBarItem(
+                    icon: Icon(Icons.map_outlined),
+                    activeIcon: Icon(Icons.map),
+                    label: 'Peta SOS',
+                  ),
+                  BottomNavigationBarItem(
+                    icon: Icon(Icons.headset_mic_outlined),
+                    activeIcon: Icon(Icons.headset_mic),
+                    label: 'Ruang Audio',
+                  ),
+                  BottomNavigationBarItem(
+                    icon: Icon(Icons.person_outline),
+                    activeIcon: Icon(Icons.person),
+                    label: 'Akun',
+                  ),
                 ],
               ),
             );

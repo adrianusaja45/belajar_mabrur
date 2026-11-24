@@ -1,19 +1,22 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:url_launcher/url_launcher.dart';
 
-import '../data/repositories/auth_repository.dart';
-import '../logic/dashboard/dashboard_cubit.dart';
+import '../core/api_exception.dart';
 import '../core/services/location_services.dart';
 import '../core/services/notification_service.dart';
-import '../core/constants.dart'; // IMPORT CONSTANTS
-
-final GlobalKey<MapSosTabState> mapSosKey = GlobalKey<MapSosTabState>();
+import '../core/theme/app_theme.dart';
+import '../data/repositories/auth_repository.dart';
+import '../data/repositories/sos_repository.dart';
+import '../logic/auth/auth_bloc.dart';
+import '../logic/dashboard/dashboard_cubit.dart';
+import '../logic/dashboard/dashboard_state.dart';
 
 class MapSosTab extends StatefulWidget {
-  MapSosTab({Key? key}) : super(key: key ?? mapSosKey);
+  const MapSosTab({super.key});
+
   @override
   MapSosTabState createState() => MapSosTabState();
 }
@@ -21,31 +24,69 @@ class MapSosTab extends StatefulWidget {
 class MapSosTabState extends State<MapSosTab> {
   final LocationService _locationService = LocationService();
   final NotificationService _notifService = NotificationService();
-  
+
   final Completer<GoogleMapController> _controller = Completer();
   final Set<Marker> _markers = {};
-  
+
   String _userRole = 'user';
+  String _groupId = 'default';
   bool _isLoading = false;
-  bool _isResetting = false; 
+  bool _isResetting = false;
 
   @override
   void initState() {
     super.initState();
     _loadUserRole();
     _initPosition();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _consumePendingSos();
+    });
+  }
+
+  void _consumePendingSos() {
+    if (!mounted) return;
+    final pending = context.read<DashboardCubit>().consumePendingSosModal();
+    if (pending == null) return;
+    final lat = double.tryParse(pending['lat']?.toString() ?? '');
+    final lng = double.tryParse(pending['lng']?.toString() ?? '');
+    if (lat != null && lng != null) {
+      showSOSModal(lat, lng, pending['name']?.toString() ?? 'Seseorang');
+    }
   }
 
   Future<void> _loadUserRole() async {
-    final prefs = await SharedPreferences.getInstance();
-    if (mounted) setState(() => _userRole = prefs.getString('user_role') ?? 'user');
+    final authBlocState = context.read<AuthBloc>().state;
+    final authRepository = context.read<AuthRepository>();
+    final dashboardCubit = context.read<DashboardCubit>();
+
+    String role;
+    String groupId;
+    if (authBlocState is AuthSuccess) {
+      role = authBlocState.user.role;
+      groupId = authBlocState.user.groupId;
+    } else {
+      final cached = await authRepository.getCachedUser();
+      role = cached?.role ?? 'user';
+      groupId = cached?.groupId ?? await authRepository.getGroupId();
+    }
+
+    if (mounted) {
+      setState(() {
+        _userRole = role;
+        _groupId = groupId;
+      });
+    }
+
+    if (role == 'host' && mounted) {
+      await dashboardCubit.startWatchingSos(groupId);
+    }
   }
 
   Future<void> _initPosition() async {
     try {
       final position = await _locationService.getCurrentPosition();
       if (position != null && mounted) {
-        _updateMapLocation(position.latitude, position.longitude);
+        await _updateMapLocation(position.latitude, position.longitude);
       }
     } catch (e) {
       debugPrint("Gagal init lokasi: $e");
@@ -57,15 +98,19 @@ class MapSosTabState extends State<MapSosTab> {
     final LatLng newPos = LatLng(lat, lng);
     setState(() {
       _markers.removeWhere((m) => m.markerId.value == 'my_loc');
-      
-      _markers.add(Marker(
-        markerId: const MarkerId('my_loc'), 
-        position: newPos, 
-        infoWindow: const InfoWindow(title: 'Lokasi Saya'),
-        icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure),
-      ));
+
+      _markers.add(
+        Marker(
+          markerId: const MarkerId('my_loc'),
+          position: newPos,
+          infoWindow: const InfoWindow(title: 'Lokasi Saya'),
+          icon:
+              BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure),
+        ),
+      );
     });
     final controller = await _controller.future;
+    if (!mounted) return;
     controller.animateCamera(CameraUpdate.newLatLngZoom(newPos, 15.0));
   }
 
@@ -77,75 +122,273 @@ class MapSosTabState extends State<MapSosTab> {
         await _updateMapLocation(position.latitude, position.longitude);
       }
     } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Gagal mendapatkan lokasi terkini.")));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("Gagal mendapatkan lokasi terkini."),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
     } finally {
       if (mounted) setState(() => _isResetting = false);
+    }
+  }
+
+  Future<void> _confirmAndSendSOS() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Kirim Sinyal Darurat?'),
+        content: const Text(
+          'Lokasi GPS Anda saat ini akan dikirim ke pembimbing grup untuk meminta bantuan segera.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text(
+              'Batal',
+              style: TextStyle(color: AppColors.textSecondary),
+            ),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.error,
+              foregroundColor: AppColors.textOnPrimary,
+            ),
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('Ya, Kirim SOS'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true && mounted) {
+      await _sendSOS();
+    }
+  }
+
+  Future<void> _openGoogleMapsRoute(double lat, double lng) async {
+    final uri = Uri.parse(
+      'https://www.google.com/maps/dir/?api=1&destination=$lat,$lng',
+    );
+    try {
+      final launched = await launchUrl(
+        uri,
+        mode: LaunchMode.externalApplication,
+      );
+      if (launched) return;
+      final fallback = await launchUrl(
+        uri,
+        mode: LaunchMode.platformDefault,
+      );
+      if (!fallback && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Tidak dapat membuka Google Maps di perangkat ini.'),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
+    } catch (e) {
+      debugPrint('Gagal membuka rute Google Maps: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Tidak dapat membuka Google Maps di perangkat ini.'),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
     }
   }
 
   Future<void> _sendSOS() async {
     if (!mounted) return;
     setState(() => _isLoading = true);
-    
+
     try {
-      final userProfile = await context.read<AuthRepository>().getProfile();
-      final String senderName = userProfile['name'] ?? "Seseorang";
-      final String groupId = userProfile['group_id']?.toString() ?? 'default';
+      final authState = context.read<AuthBloc>().state;
+      final authRepository = context.read<AuthRepository>();
+      final sosRepository = context.read<SosRepository>();
+      final dashboardCubit = context.read<DashboardCubit>();
+
+      final user = authState is AuthSuccess
+          ? authState.user
+          : await authRepository.getCachedUser();
+      final String senderName =
+          (user != null && user.name.isNotEmpty) ? user.name : "Seseorang";
+      final String groupId = user?.groupId ?? await authRepository.getGroupId();
 
       final position = await _locationService.getCurrentPosition();
-      if (position == null) throw Exception("Lokasi tidak ditemukan. Pastikan GPS aktif.");
+      if (position == null) {
+        throw const ApiException("Lokasi tidak ditemukan. Pastikan GPS aktif.");
+      }
 
-      await _notifService.sendSOS(
-        senderName: senderName,
+      final String timeStamp = DateTime.now().toString().substring(11, 16);
+      await dashboardCubit.addSosToHistory(
+        {
+          'lat': position.latitude,
+          'lng': position.longitude,
+          'time': timeStamp,
+          'name': senderName,
+        },
         groupId: groupId,
-        lat: position.latitude,
-        lng: position.longitude,
       );
 
-      if(mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("SOS Berhasil Terkirim!")));
+      // Firestore failure must not block the emergency FCM broadcast.
+      Object? firestoreError;
+      try {
+        await sosRepository.createReport(
+          groupId: groupId,
+          senderName: senderName,
+          lat: position.latitude,
+          lng: position.longitude,
+        );
+      } catch (e) {
+        firestoreError = e;
+        debugPrint("Gagal menyimpan riwayat SOS ke Firestore: $e");
+      }
+
+      Object? fcmError;
+      try {
+        await _notifService.sendSOS(
+          senderName: senderName,
+          groupId: groupId,
+          lat: position.latitude,
+          lng: position.longitude,
+        );
+      } catch (e) {
+        fcmError = e;
+        debugPrint("Gagal mengirim notifikasi FCM SOS: $e");
+      }
+
+      if (!mounted) return;
+      if (fcmError != null && firestoreError != null) {
+        throw const ApiException(
+          "SOS gagal terkirim. Periksa koneksi internet Anda.",
+        );
+      }
+
+      final String feedbackMessage;
+      final Color feedbackColor;
+      if (fcmError == null && firestoreError == null) {
+        feedbackMessage = "Sinyal SOS berhasil terkirim.";
+        feedbackColor = AppColors.success;
+      } else if (fcmError == null) {
+        feedbackMessage =
+            "Sinyal SOS terkirim ke pembimbing, namun riwayat server gagal tersimpan.";
+        feedbackColor = AppColors.warning;
+      } else {
+        feedbackMessage =
+            "Riwayat SOS tersimpan, namun notifikasi darurat gagal terkirim.";
+        feedbackColor = AppColors.warning;
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(feedbackMessage),
+          backgroundColor: feedbackColor,
+        ),
+      );
     } catch (e) {
       debugPrint("Gagal kirim SOS: $e");
-      if(mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Gagal: $e")));
+      if (mounted) {
+        final message = e is ApiException
+            ? e.message
+            : "Gagal mengirim sinyal SOS. Silakan coba lagi.";
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(message),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
     } finally {
-      if(mounted) setState(() => _isLoading = false);
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
   void showSOSModal(double lat, double lng, String senderName) {
     if (!mounted) return;
     showModalBottomSheet(
-      context: context, isScrollControlled: true, useSafeArea: true, backgroundColor: Colors.transparent,
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: Colors.transparent,
       builder: (context) => SafeArea(
         child: Container(
           decoration: const BoxDecoration(
-            color: AppConstants.backgroundColor, // CONSTANT
-            borderRadius: BorderRadius.vertical(top: Radius.circular(25))
+            color: AppColors.background,
+            borderRadius:
+                BorderRadius.vertical(top: Radius.circular(AppRadius.lg)),
           ),
-          padding: const EdgeInsets.all(20),
+          padding: const EdgeInsets.all(AppSpacing.xl),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Container(width: 50, height: 5, decoration: BoxDecoration(color: AppConstants.textSecondary.withValues(alpha: 0.3), borderRadius: BorderRadius.circular(10))),
-              const SizedBox(height: 20),
-              const Icon(Icons.warning_amber_rounded, size: 60, color: AppConstants.errorColor), // CONSTANT
-              Text(
-                "${senderName.toUpperCase()} BUTUH BANTUAN!", 
-                textAlign: TextAlign.center,
-                style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: AppConstants.errorColor) // CONSTANT
+              Container(
+                width: 44,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: AppColors.borderChip,
+                  borderRadius: BorderRadius.circular(2),
+                ),
               ),
-              const SizedBox(height: 10),
-              Text("Lokasi: $lat, $lng", style: const TextStyle(color: AppConstants.textPrimary)), // CONSTANT
-              const SizedBox(height: 30),
+              const SizedBox(height: AppSpacing.xl),
+              const Icon(
+                Icons.warning_amber_rounded,
+                size: 56,
+                color: AppColors.error,
+              ),
+              const SizedBox(height: AppSpacing.sm),
+              Text(
+                "$senderName membutuhkan bantuan",
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.error,
+                ),
+              ),
+              const SizedBox(height: AppSpacing.sm),
+              Text(
+                "Koordinat: ${lat.toStringAsFixed(5)}, ${lng.toStringAsFixed(5)}",
+                style: const TextStyle(color: AppColors.textPrimary),
+              ),
+              const SizedBox(height: AppSpacing.xxl),
               ElevatedButton.icon(
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: AppConstants.primaryColor, // CONSTANT
-                  foregroundColor: AppConstants.textWhite, // CONSTANT
-                  minimumSize: const Size(double.infinity, 50), 
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15))
+                  backgroundColor: AppColors.primary,
+                  foregroundColor: AppColors.textOnPrimary,
+                  minimumSize: const Size(double.infinity, 52),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(AppRadius.md),
+                  ),
                 ),
-                onPressed: () { Navigator.pop(context); _goToSOSLocation(lat, lng, senderName); },
+                onPressed: () {
+                  Navigator.pop(context);
+                  _openGoogleMapsRoute(lat, lng);
+                },
                 icon: const Icon(Icons.directions),
-                label: const Text("Tuju Lokasi Darurat"),
+                label: const Text("Buka Rute Google Maps"),
+              ),
+              const SizedBox(height: AppSpacing.md),
+              OutlinedButton.icon(
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: AppColors.primary,
+                  side: const BorderSide(color: AppColors.primary),
+                  minimumSize: const Size(double.infinity, 48),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(AppRadius.md),
+                  ),
+                ),
+                onPressed: () {
+                  Navigator.pop(context);
+                  _goToSOSLocation(lat, lng, senderName);
+                },
+                icon: const Icon(Icons.location_searching),
+                label: const Text("Lihat di Peta"),
               ),
             ],
           ),
@@ -154,40 +397,63 @@ class MapSosTabState extends State<MapSosTab> {
     );
   }
 
-  Future<void> _goToSOSLocation(double lat, double lng, String senderName) async {
+  Future<void> _goToSOSLocation(
+    double lat,
+    double lng,
+    String senderName,
+  ) async {
+    if (!mounted) return;
     final LatLng sosPos = LatLng(lat, lng);
     setState(() {
-      _markers.add(Marker(
-        markerId: MarkerId('sos_${DateTime.now().millisecondsSinceEpoch}'), 
-        position: sosPos, 
-        infoWindow: InfoWindow(title: "SOS: $senderName"),
-        icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed)
-      ));
+      _markers.removeWhere((m) => m.markerId.value == 'active_sos');
+      _markers.add(
+        Marker(
+          markerId: const MarkerId('active_sos'),
+          position: sosPos,
+          infoWindow: InfoWindow(title: "SOS: $senderName"),
+          icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed),
+        ),
+      );
     });
     final controller = await _controller.future;
+    if (!mounted) return;
     controller.animateCamera(CameraUpdate.newLatLngZoom(sosPos, 17.0));
   }
 
   void _confirmClearHistory(BuildContext context) {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text("Hapus Riwayat?"),
-        content: const Text("Semua data SOS akan dihapus dari perangkat ini."),
+      builder: (dialogContext) => AlertDialog(
+        title: const Text("Hapus Riwayat SOS?"),
+        content: const Text(
+          "Riwayat SOS di perangkat ini akan disembunyikan. Laporan darurat baru tetap masuk secara otomatis.",
+        ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context), 
-            child: const Text("Batal")
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text(
+              "Batal",
+              style: TextStyle(color: AppColors.textSecondary),
+            ),
           ),
           TextButton(
             onPressed: () {
               context.read<DashboardCubit>().clearHistory();
-              Navigator.pop(context);
+              Navigator.pop(dialogContext);
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text("Riwayat berhasil dihapus."))
+                const SnackBar(
+                  content: Text("Riwayat SOS berhasil dibersihkan."),
+                  backgroundColor: AppColors.success,
+                ),
               );
             },
-            child: const Text("HAPUS", style: TextStyle(color: AppConstants.errorColor, fontWeight: FontWeight.bold)), // CONSTANT
+            child: const Text(
+              "Hapus Riwayat",
+              style: TextStyle(
+                color: AppColors.error,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
           ),
         ],
       ),
@@ -196,36 +462,80 @@ class MapSosTabState extends State<MapSosTab> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: Stack(
-        children: [
-          GoogleMap(
-            initialCameraPosition: const CameraPosition(target: LatLng(-6.175, 106.82), zoom: 12), 
-            markers: _markers, 
-            myLocationEnabled: true, 
-            myLocationButtonEnabled: false, 
-            zoomControlsEnabled: false, 
-            onMapCreated: (c) => _controller.complete(c)
-          ),
-          
-          if (_userRole == 'host') _buildHostSosPanel(),
-          if (_userRole != 'host') Positioned(bottom: 30, left: 20, right: 20, child: _buildUserSosButton()),
-          
-          // --- TOMBOL RESET POSISI ---
-          Positioned(
-            top: 50, right: 20,
-            child: FloatingActionButton(
-              heroTag: "btnReset",
-              mini: true,
-              backgroundColor: AppConstants.backgroundColor, // CONSTANT
-              foregroundColor: AppConstants.primaryColor, // CONSTANT
-              onPressed: _isResetting ? null : _resetToMyLocation,
-              child: _isResetting 
-                  ? const SizedBox(width: 15, height: 15, child: CircularProgressIndicator(strokeWidth: 2, color: AppConstants.primaryColor)) // CONSTANT
-                  : const Icon(Icons.my_location),
+    return BlocListener<DashboardCubit, DashboardState>(
+      listenWhen: (previous, current) =>
+          current.pendingSosModal != null &&
+          current.pendingSosModal != previous.pendingSosModal,
+      listener: (_, __) => _consumePendingSos(),
+      child: Scaffold(
+        body: Stack(
+          children: [
+            RepaintBoundary(
+              child: GoogleMap(
+                initialCameraPosition: const CameraPosition(
+                  target: LatLng(-6.175, 106.82),
+                  zoom: 12,
+                ),
+                markers: _markers,
+                myLocationEnabled: true,
+                myLocationButtonEnabled: false,
+                zoomControlsEnabled: false,
+                buildingsEnabled: false,
+                indoorViewEnabled: false,
+                tiltGesturesEnabled: false,
+                onMapCreated: (c) {
+                  if (!_controller.isCompleted) {
+                    _controller.complete(c);
+                  }
+                },
+              ),
             ),
-          ),
-        ],
+            if (_userRole == 'host') _buildHostSosPanel(),
+            if (_userRole != 'host')
+              Positioned(
+                bottom: 0,
+                left: 0,
+                right: 0,
+                child: SafeArea(
+                  top: false,
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(
+                      AppSpacing.xl,
+                      0,
+                      AppSpacing.xl,
+                      AppSpacing.xl,
+                    ),
+                    child: _buildUserSosButton(),
+                  ),
+                ),
+              ),
+            SafeArea(
+              child: Align(
+                alignment: Alignment.topRight,
+                child: Padding(
+                  padding: const EdgeInsets.all(AppSpacing.lg),
+                  child: FloatingActionButton(
+                    heroTag: "btnReset",
+                    tooltip: 'Pusatkan ke lokasi saya',
+                    backgroundColor: AppColors.background,
+                    foregroundColor: AppColors.primary,
+                    onPressed: _isResetting ? null : _resetToMyLocation,
+                    child: _isResetting
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: AppColors.primary,
+                            ),
+                          )
+                        : const Icon(Icons.my_location),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -233,86 +543,317 @@ class MapSosTabState extends State<MapSosTab> {
   Widget _buildUserSosButton() {
     return ElevatedButton.icon(
       style: ElevatedButton.styleFrom(
-        backgroundColor: AppConstants.primaryColor, // CONSTANT
-        minimumSize: const Size(double.infinity, 65), 
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(35))
+        backgroundColor: AppColors.primary,
+        foregroundColor: AppColors.textOnPrimary,
+        minimumSize: const Size(double.infinity, 60),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppRadius.full),
+        ),
       ),
-      onPressed: _isLoading ? null : _sendSOS,
-      icon: _isLoading 
-          ? const CircularProgressIndicator(color: AppConstants.textWhite) // CONSTANT
-          : const Icon(Icons.sos, size: 35, color: AppConstants.textWhite), // CONSTANT
+      onPressed: _isLoading ? null : _confirmAndSendSOS,
+      icon: _isLoading
+          ? const SizedBox(
+              width: 24,
+              height: 24,
+              child: CircularProgressIndicator(
+                color: AppColors.textOnPrimary,
+                strokeWidth: 2.5,
+              ),
+            )
+          : const Icon(
+              Icons.sos,
+              size: 32,
+              color: AppColors.textOnPrimary,
+            ),
       label: Text(
-        _isLoading ? "MENGIRIM..." : "TEKAN UNTUK SOS", 
-        style: const TextStyle(color: AppConstants.textWhite, fontSize: 20, fontWeight: FontWeight.bold) // CONSTANT
+        _isLoading ? "Mengirim sinyal SOS..." : "Kirim Sinyal SOS",
+        style: const TextStyle(
+          color: AppColors.textOnPrimary,
+          fontSize: 18,
+          fontWeight: FontWeight.bold,
+        ),
       ),
     );
   }
 
   Widget _buildHostSosPanel() {
-    final history = context.watch<DashboardCubit>().state.sosHistory;
-    
-    return DraggableScrollableSheet(
-      initialChildSize: 0.12, minChildSize: 0.12, maxChildSize: 0.8,
-      builder: (context, scrollController) {
-        return Container(
-          decoration: const BoxDecoration(
-            color: AppConstants.backgroundColor, // CONSTANT
-            borderRadius: BorderRadius.vertical(top: Radius.circular(25)), 
-            boxShadow: [BoxShadow(color: Colors.black26, blurRadius: 10)]
-          ),
-          child: ListView(
-            controller: scrollController,
-            padding: EdgeInsets.zero,
-            children: [
-              const SizedBox(height: 12),
-              Center(child: Container(width: 40, height: 4, decoration: BoxDecoration(color: AppConstants.textSecondary.withValues(alpha: 0.3), borderRadius: BorderRadius.circular(10)))), // CONSTANT
-              
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Text(
-                      "Riwayat SOS", 
-                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)
-                    ),
-                    if (history.isNotEmpty)
-                      InkWell(
-                        onTap: () => _confirmClearHistory(context),
-                        child: const Row(
-                          children: [
-                            Icon(Icons.delete_outline, color: AppConstants.errorColor, size: 20), // CONSTANT
-                            SizedBox(width: 4),
-                            Text("Hapus", style: TextStyle(color: AppConstants.errorColor, fontWeight: FontWeight.bold, fontSize: 12)), // CONSTANT
-                          ],
-                        ),
-                      ),
-                  ],
-                ),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final double maxHeight =
+            constraints.maxHeight > 0 ? constraints.maxHeight : 700;
+        // Match collapsed height to handle + header so the first list item never clips in half.
+        final double collapsedSize = (74 / maxHeight).clamp(0.09, 0.22);
+        final double midSize = collapsedSize < 0.45 ? 0.48 : 0.60;
+
+        return DraggableScrollableSheet(
+          initialChildSize: collapsedSize,
+          minChildSize: collapsedSize,
+          maxChildSize: 0.8,
+          snap: true,
+          snapSizes: [collapsedSize, midSize, 0.8],
+          builder: (context, scrollController) {
+            return BlocSelector<
+                DashboardCubit,
+                DashboardState,
+                ({
+                  List<Map<String, dynamic>> history,
+                  bool isLoading,
+                  String? error,
+                })>(
+              selector: (state) => (
+                history: state.sosHistory,
+                isLoading: state.isSosLoading,
+                error: state.sosError,
               ),
-              const Divider(height: 1),
-              
-              if (history.isEmpty)
-                const SizedBox(height: 200, child: Center(child: Text("Belum ada laporan masuk.", style: TextStyle(color: AppConstants.textSecondary)))) // CONSTANT
-              else
-                ListView.separated(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(), 
-                  itemCount: history.length,
-                  separatorBuilder: (context, index) => const Divider(),
-                  itemBuilder: (context, index) {
-                    final data = history[index];
-                    String sender = data['name'] ?? "Seseorang";
-                    return ListTile(
-                      leading: const CircleAvatar(backgroundColor: AppConstants.errorColor, child: Icon(Icons.emergency, color: AppConstants.textWhite)), // CONSTANT
-                      title: Text("$sender - ${data['time']}", style: const TextStyle(fontWeight: FontWeight.bold)), 
-                      subtitle: Text("Lokasi: ${data['lat']}, ${data['lng']}"),
-                      onTap: () => _goToSOSLocation(double.parse(data['lat'].toString()), double.parse(data['lng'].toString()), sender),
-                    );
-                  },
-                ),
-            ],
-          ),
+              builder: (context, sosState) {
+                final history = sosState.history;
+                return Material(
+                  color: AppColors.background,
+                  elevation: 8,
+                  shadowColor: Colors.black26,
+                  borderRadius: const BorderRadius.vertical(
+                    top: Radius.circular(AppRadius.lg),
+                  ),
+                  clipBehavior: Clip.antiAlias,
+                  child: SafeArea(
+                    top: false,
+                    child: ListView(
+                      controller: scrollController,
+                      padding: EdgeInsets.zero,
+                      children: [
+                        const SizedBox(height: AppSpacing.md),
+                        Center(
+                          child: Container(
+                            width: 40,
+                            height: 4,
+                            decoration: BoxDecoration(
+                              color: AppColors.borderChip,
+                              borderRadius: BorderRadius.circular(2),
+                            ),
+                          ),
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: AppSpacing.xl,
+                            vertical: 6,
+                          ),
+                          child: ConstrainedBox(
+                            constraints: const BoxConstraints(minHeight: 44),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                const Text(
+                                  "Riwayat SOS",
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 16,
+                                    color: AppColors.textPrimary,
+                                  ),
+                                ),
+                                if (history.isNotEmpty)
+                                  TextButton.icon(
+                                    style: TextButton.styleFrom(
+                                      foregroundColor: AppColors.error,
+                                      minimumSize: const Size(48, 44),
+                                      tapTargetSize:
+                                          MaterialTapTargetSize.shrinkWrap,
+                                    ),
+                                    onPressed: () =>
+                                        _confirmClearHistory(context),
+                                    icon: const Icon(
+                                      Icons.delete_outline,
+                                      size: 20,
+                                    ),
+                                    label: const Text(
+                                      "Hapus",
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        const Divider(height: 1, color: AppColors.borderSubtle),
+                        if (sosState.error != null)
+                          Container(
+                            margin: const EdgeInsets.fromLTRB(
+                              AppSpacing.lg,
+                              AppSpacing.md,
+                              AppSpacing.lg,
+                              0,
+                            ),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: AppSpacing.md,
+                              vertical: AppSpacing.xs,
+                            ),
+                            decoration: BoxDecoration(
+                              color: AppColors.errorSurface,
+                              borderRadius: BorderRadius.circular(AppRadius.sm),
+                            ),
+                            child: Row(
+                              children: [
+                                const Icon(
+                                  Icons.cloud_off_outlined,
+                                  size: 18,
+                                  color: AppColors.error,
+                                ),
+                                const SizedBox(width: AppSpacing.sm),
+                                Expanded(
+                                  child: Text(
+                                    sosState.error!,
+                                    style: const TextStyle(
+                                      fontSize: 12,
+                                      color: AppColors.error,
+                                    ),
+                                  ),
+                                ),
+                                TextButton(
+                                  onPressed: () => context
+                                      .read<DashboardCubit>()
+                                      .startWatchingSos(_groupId),
+                                  style: TextButton.styleFrom(
+                                    foregroundColor: AppColors.error,
+                                    minimumSize: const Size(44, 44),
+                                    tapTargetSize:
+                                        MaterialTapTargetSize.shrinkWrap,
+                                  ),
+                                  child: const Text(
+                                    'Coba Lagi',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        const SizedBox(height: AppSpacing.sm),
+                        if (sosState.isLoading && history.isEmpty)
+                          const SizedBox(
+                            height: 180,
+                            child: Center(
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  CircularProgressIndicator(),
+                                  SizedBox(height: AppSpacing.md),
+                                  Text(
+                                    'Memuat riwayat SOS...',
+                                    style: TextStyle(
+                                      color: AppColors.textSecondary,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          )
+                        else if (history.isEmpty)
+                          const SizedBox(
+                            height: 180,
+                            child: Center(
+                              child: Padding(
+                                padding: EdgeInsets.symmetric(
+                                  horizontal: AppSpacing.xxl,
+                                ),
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(
+                                      Icons.shield_outlined,
+                                      size: 40,
+                                      color: AppColors.textSecondary,
+                                    ),
+                                    SizedBox(height: AppSpacing.sm),
+                                    Text(
+                                      "Belum ada sinyal SOS dari grup Anda.",
+                                      textAlign: TextAlign.center,
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.w600,
+                                        color: AppColors.textPrimary,
+                                      ),
+                                    ),
+                                    SizedBox(height: AppSpacing.xs),
+                                    Text(
+                                      "Laporan darurat jamaah akan muncul otomatis di sini.",
+                                      textAlign: TextAlign.center,
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: AppColors.textSecondary,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          )
+                        else
+                          ListView.separated(
+                            shrinkWrap: true,
+                            physics: const NeverScrollableScrollPhysics(),
+                            itemCount: history.length,
+                            separatorBuilder: (context, index) =>
+                                const Divider(color: AppColors.borderSubtle),
+                            itemBuilder: (context, index) {
+                              final data = history[index];
+                              final sender =
+                                  data['name']?.toString() ?? "Seseorang";
+                              final lat =
+                                  double.tryParse(data['lat'].toString());
+                              final lng =
+                                  double.tryParse(data['lng'].toString());
+                              final coordText = (lat != null && lng != null)
+                                  ? '${lat.toStringAsFixed(5)}, ${lng.toStringAsFixed(5)}'
+                                  : '${data['lat']}, ${data['lng']}';
+                              return ListTile(
+                                minTileHeight: 56,
+                                leading: const CircleAvatar(
+                                  backgroundColor: AppColors.error,
+                                  child: Icon(
+                                    Icons.emergency,
+                                    color: AppColors.textOnPrimary,
+                                  ),
+                                ),
+                                title: Text(
+                                  "$sender - ${data['time']}",
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    color: AppColors.textPrimary,
+                                  ),
+                                ),
+                                subtitle: Text(
+                                  "Koordinat: $coordText",
+                                  style: const TextStyle(
+                                    color: AppColors.textSecondary,
+                                  ),
+                                ),
+                                trailing: (lat != null && lng != null)
+                                    ? IconButton(
+                                        tooltip: 'Buka rute Google Maps',
+                                        icon: const Icon(
+                                          Icons.directions,
+                                          color: AppColors.primary,
+                                        ),
+                                        onPressed: () =>
+                                            _openGoogleMapsRoute(lat, lng),
+                                      )
+                                    : null,
+                                onTap: () {
+                                  if (lat != null && lng != null) {
+                                    _goToSOSLocation(lat, lng, sender);
+                                  }
+                                },
+                              );
+                            },
+                          ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            );
+          },
         );
       },
     );

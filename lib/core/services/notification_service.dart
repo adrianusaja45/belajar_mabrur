@@ -1,10 +1,14 @@
+import 'dart:async';
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:googleapis_auth/auth_io.dart';
-// Baris import http dihapus karena tidak digunakan
+
+import '../api_exception.dart';
 
 class NotificationService {
-  /// Mengirim Notifikasi SOS ke Topic Group tertentu
+  static const Duration _requestTimeout = Duration(seconds: 15);
+
   Future<void> sendSOS({
     required String senderName,
     required String groupId,
@@ -12,47 +16,61 @@ class NotificationService {
     required double lng,
   }) async {
     try {
-      // 1. Load Service Account (Rahasia)
-      final jsonString = await rootBundle.loadString('assets/service_account.json');
+      final jsonString =
+          await rootBundle.loadString('assets/service_account.json');
       final Map<String, dynamic> jsonMap = jsonDecode(jsonString);
       final serviceAccount = ServiceAccountCredentials.fromJson(jsonMap);
-      
-      // 2. Dapatkan Akses HTTP Client yang sudah ter-otentikasi
+
       final client = await clientViaServiceAccount(
-        serviceAccount, 
-        ['https://www.googleapis.com/auth/firebase.messaging']
-      );
+        serviceAccount,
+        ['https://www.googleapis.com/auth/firebase.messaging'],
+      ).timeout(_requestTimeout);
 
-      // 3. Susun Payload Data
-      final notificationData = {
-        "message": {
-          "topic": "sos_group_$groupId", // Topik Dinamis
-          "notification": {
-            "title": "DARURAT (Group $groupId)", 
-            "body": "$senderName butuh bantuan segera!"
-          },
-          "android": { "priority": "high" },
-          "data": {
-            "lat": lat.toString(),
-            "lng": lng.toString(),
-            "sender_name": senderName,
-            "group_id": groupId,
-            "type": "sos"
+      try {
+        final notificationData = {
+          "message": {
+            "topic": "sos_group_$groupId",
+            "notification": {
+              "title": "Sinyal SOS (Grup $groupId)",
+              "body": "$senderName membutuhkan bantuan segera."
+            },
+            "android": {"priority": "high"},
+            "data": {
+              "lat": lat.toString(),
+              "lng": lng.toString(),
+              "sender_name": senderName,
+              "group_id": groupId,
+              "type": "sos"
+            }
           }
+        };
+
+        final response = await client
+            .post(
+              Uri.parse(
+                'https://fcm.googleapis.com/v1/projects/${jsonMap['project_id']}/messages:send',
+              ),
+              headers: {'Content-Type': 'application/json'},
+              body: jsonEncode(notificationData),
+            )
+            .timeout(_requestTimeout);
+
+        if (response.statusCode < 200 || response.statusCode >= 300) {
+          debugPrint('FCM HTTP ${response.statusCode}: ${response.body}');
+          throw const ApiException('Gagal mengirim notifikasi darurat.');
         }
-      };
-
-      // 4. Kirim Request menggunakan client auth
-      await client.post(
-        Uri.parse('https://fcm.googleapis.com/v1/projects/${jsonMap['project_id']}/messages:send'),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode(notificationData),
+      } finally {
+        client.close();
+      }
+    } on ApiException {
+      rethrow;
+    } on TimeoutException {
+      throw const ApiException(
+        'Pengiriman notifikasi darurat timeout. Periksa koneksi Anda.',
       );
-
-      // Jangan lupa tutup client setelah selesai
-      client.close();
     } catch (e) {
-      throw Exception("Gagal mengirim SOS: $e");
+      debugPrint('Gagal mengirim SOS: $e');
+      throw const ApiException('Gagal mengirim notifikasi darurat.');
     }
   }
 }
