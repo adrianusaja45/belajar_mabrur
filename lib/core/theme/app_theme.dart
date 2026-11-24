@@ -21,7 +21,6 @@ class AppColors {
   static const Color borderInput = Color(0xFF767676);
   static const Color borderChip = Color(0xFF8A8680);
 
-  // Semantic status
   static const Color success = Color(0xFF1B6E3A);
   static const Color error = Color(0xFFB71C1C);
   static const Color errorSurface = Color(0xFFFFEBEE);

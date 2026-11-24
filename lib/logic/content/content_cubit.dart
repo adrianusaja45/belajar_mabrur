@@ -9,15 +9,13 @@ import 'content_state.dart';
 class ContentCubit extends Cubit<ContentState> {
   final ContentRepository repository;
 
-  // Cache data asli agar tidak perlu hit API ulang saat filtering
+  // Keep unfiltered list in memory for local search and category filtering.
   List<ContentModel> _allContent = [];
   bool _isFromCache = false;
 
   ContentCubit(this.repository) : super(ContentInitial());
 
-  /// Fungsi untuk mengambil data dari Server
   Future<void> fetchContent() async {
-    // Safety check: Jangan emit jika widget sudah didispose
     if (isClosed) return;
 
     final previous = state;
@@ -42,8 +40,6 @@ class ContentCubit extends Cubit<ContentState> {
     }
   }
 
-  /// Fungsi lokal untuk memfilter data (Pencarian & Kategori)
-  /// Tidak memanggil API, hanya memproses _allContent
   void filterContent({String? category, String? query}) {
     if (isClosed) return;
 
@@ -51,7 +47,6 @@ class ContentCubit extends Cubit<ContentState> {
     String currentCategory = "All";
     String currentQuery = "";
 
-    // Pertahankan filter sebelumnya jika parameter null
     if (currentState is ContentLoaded) {
       currentCategory = category ?? currentState.activeCategory;
       currentQuery = query ?? currentState.searchQuery;
@@ -62,7 +57,6 @@ class ContentCubit extends Cubit<ContentState> {
 
     final normalizedQuery = currentQuery.trim().toLowerCase();
 
-    // Logika Filter
     List<ContentModel> filtered = _allContent.where((item) {
       final matchCategory =
           currentCategory == "All" || item.category == currentCategory;

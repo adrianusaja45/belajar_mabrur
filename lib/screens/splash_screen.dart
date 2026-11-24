@@ -21,11 +21,9 @@ class _SplashScreenState extends State<SplashScreen> {
   }
 
   Future<void> _initializeApp() async {
-    // 1. Beri jeda untuk branding
     await Future.delayed(const Duration(seconds: 2));
 
-    // 2. REQUEST KOLEKTIF (Mencegah PlatformException)
-    // Kita tetap lanjut meskipun ada izin yang ditolak agar user bisa masuk ke login
+    // Request permissions together to avoid PlatformException and continue even if denied.
     try {
       await [
         Permission.location,
@@ -38,7 +36,6 @@ class _SplashScreenState extends State<SplashScreen> {
       debugPrint("Gagal meminta izin: $e");
     }
 
-    // 3. Pemicu Cek Auth Status
     if (mounted) {
       context.read<AuthBloc>().add(CheckAuthStatus());
     }

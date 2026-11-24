@@ -17,23 +17,13 @@ class ConferenceConfig {
         ? ZegoUIKitPrebuiltLiveAudioRoomConfig.host()
         : ZegoUIKitPrebuiltLiveAudioRoomConfig.audience();
 
-// Mic & Speaker
-
     config.turnOnMicrophoneWhenJoining = isHost;
 
     config.useSpeakerWhenJoining = true;
 
-// ============================================
-
-// KONFIGURASI MINIMIZE/PIP BAWAAN ZEGO
-
-// ============================================
-
     config.topMenuBar.buttons = [
       ZegoLiveAudioRoomMenuBarButtonName.minimizingButton,
     ];
-
-// Bottom Menu Bar
 
     config.bottomMenuBar.hostButtons = const [
       ZegoLiveAudioRoomMenuBarButtonName.toggleMicrophoneButton,
@@ -54,8 +44,6 @@ class ConferenceConfig {
       ZegoLiveAudioRoomMenuBarButtonName.leaveButton,
     ];
 
-// Background
-
     config.background = Container(
       decoration: BoxDecoration(
         gradient: LinearGradient(
@@ -69,8 +57,6 @@ class ConferenceConfig {
       ),
     );
 
-// Seat Layout
-
     config.seat.layout = ZegoLiveAudioRoomLayoutConfig(
       rowConfigs: [
         ZegoLiveAudioRoomLayoutRowConfig(count: 3, seatSpacing: 16),
@@ -79,8 +65,6 @@ class ConferenceConfig {
       ],
       rowSpacing: 16,
     );
-
-// Seat Background
 
     config.seat.backgroundBuilder = (_, __, ___, ____) {
       return Container(
@@ -98,8 +82,6 @@ class ConferenceConfig {
         ),
       );
     };
-
-// Avatar Builder
 
     config.seat.avatarBuilder = (context, size, user, __) {
       if (user == null) return const SizedBox();
@@ -161,8 +143,6 @@ class ConferenceConfig {
         ),
       );
     };
-
-// Sound Wave
 
     config.seat.showSoundWaveInAudioMode = true;
 

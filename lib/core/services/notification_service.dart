@@ -4,10 +4,8 @@ import 'package:flutter/services.dart' show rootBundle;
 import 'package:googleapis_auth/auth_io.dart';
 
 import '../api_exception.dart';
-// Baris import http dihapus karena tidak digunakan
 
 class NotificationService {
-  /// Mengirim Notifikasi SOS ke Topic Group tertentu
   Future<void> sendSOS({
     required String senderName,
     required String groupId,
@@ -15,7 +13,6 @@ class NotificationService {
     required double lng,
   }) async {
     try {
-      // 1. Load Service Account (Rahasia)
       final jsonString =
           await rootBundle.loadString('assets/service_account.json');
       final Map<String, dynamic> jsonMap = jsonDecode(jsonString);

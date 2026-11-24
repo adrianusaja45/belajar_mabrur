@@ -243,15 +243,11 @@ class _MyAppState extends State<MyApp> {
           navigatorKey: navigatorKey,
           debugShowCheckedModeBanner: false,
 
-          // ============================================
-          // PENTING:  Tambahkan builder untuk Mini Overlay
-          // dengan contextQuery yang diperlukan
-          // ============================================
+          // Mount Zego PiP overlay above Navigator routes.
           builder: (context, child) {
             return Stack(
               children: [
                 child!,
-                // Mini overlay Zego untuk PIP
                 ZegoUIKitPrebuiltLiveAudioRoomMiniOverlayPage(
                   contextQuery: () {
                     return navigatorKey.currentState!.context;
