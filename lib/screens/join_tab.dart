@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
 
+import '../core/theme/app_theme.dart';
 import '../data/models/user_model.dart';
 import '../data/repositories/auth_repository.dart';
 import '../logic/auth/auth_bloc.dart';
@@ -56,82 +57,83 @@ class _JoinTabState extends State<JoinTab> {
         final bool effectiveIsHost = canHost && _isHost;
 
         return Scaffold(
-          backgroundColor: Colors.white,
+          backgroundColor: AppColors.background,
           appBar: AppBar(
             title: const Text(
               "Audio Conference",
               style: TextStyle(
-                color: Color(0xFFA01C1C),
+                color: AppColors.primary,
                 fontWeight: FontWeight.bold,
               ),
             ),
-            backgroundColor: Colors.white,
-            elevation: 0,
-            centerTitle: true,
           ),
-          body: SingleChildScrollView(
-            padding: const EdgeInsets.all(20.0),
-            child: Column(
-              children: [
-                const Icon(
-                  Icons.mic_external_on,
-                  size: 80,
-                  color: Color(0xFFA01C1C),
-                ),
-                const SizedBox(height: 30),
-                _buildUserCard(userName, userRole),
-                const SizedBox(height: 30),
-                _buildInfoCard(effectiveIsHost),
-                const SizedBox(height: 20),
-                TextField(
-                  controller: _roomIDController,
-                  decoration: InputDecoration(
-                    labelText: "Masukkan Room ID",
-                    hintText: "Contoh: 112",
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    prefixIcon: const Icon(
-                      Icons.meeting_room,
-                      color: Color(0xFFA01C1C),
-                    ),
+          body: SafeArea(
+            top: false,
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(AppSpacing.xl),
+              child: Column(
+                children: [
+                  const Icon(
+                    Icons.mic_external_on,
+                    size: 76,
+                    color: AppColors.primary,
                   ),
-                  keyboardType: TextInputType.number,
-                ),
-                const SizedBox(height: 10),
-                if (canHost)
-                  SwitchListTile(
-                    title: const Text(
-                      "Buka sebagai Host? ",
-                      style: TextStyle(fontWeight: FontWeight.bold),
-                    ),
-                    subtitle: Text(
-                      effectiveIsHost
-                          ? "Anda akan membuat room baru"
-                          : "Masuk sebagai peserta",
-                    ),
-                    value: effectiveIsHost,
-                    activeThumbColor: const Color(0xFFA01C1C),
-                    onChanged: (val) => setState(() => _isHost = val),
-                  )
-                else
-                  const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 10),
-                    child: Text(
-                      "Anda akan bergabung sebagai Peserta",
-                      style: TextStyle(
-                        color: Colors.grey,
-                        fontStyle: FontStyle.italic,
+                  const SizedBox(height: AppSpacing.xxl),
+                  _buildUserCard(userName, userRole),
+                  const SizedBox(height: AppSpacing.xl),
+                  _buildInfoCard(effectiveIsHost),
+                  const SizedBox(height: AppSpacing.xl),
+                  TextField(
+                    controller: _roomIDController,
+                    decoration: const InputDecoration(
+                      labelText: "Masukkan Room ID",
+                      hintText: "Contoh: 112",
+                      prefixIcon: Icon(
+                        Icons.meeting_room,
+                        color: AppColors.primary,
                       ),
                     ),
+                    keyboardType: TextInputType.number,
                   ),
-                const SizedBox(height: 30),
-                _buildJoinButton(
-                  userName: userName,
-                  userId: userId,
-                  isHostUser: effectiveIsHost,
-                ),
-              ],
+                  const SizedBox(height: AppSpacing.md),
+                  if (canHost)
+                    SwitchListTile(
+                      title: const Text(
+                        "Buka sebagai Host?",
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.textPrimary,
+                        ),
+                      ),
+                      subtitle: Text(
+                        effectiveIsHost
+                            ? "Anda akan membuat room baru"
+                            : "Masuk sebagai peserta",
+                        style: const TextStyle(color: AppColors.textSecondary),
+                      ),
+                      value: effectiveIsHost,
+                      activeThumbColor: AppColors.primary,
+                      onChanged: (val) => setState(() => _isHost = val),
+                    )
+                  else
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: AppSpacing.md),
+                      child: Text(
+                        "Anda akan bergabung sebagai Peserta",
+                        style: TextStyle(
+                          color: AppColors.textSecondary,
+                          fontStyle: FontStyle.italic,
+                        ),
+                      ),
+                    ),
+                  const SizedBox(height: AppSpacing.xxl),
+                  _buildJoinButton(
+                    userName: userName,
+                    userId: userId,
+                    isHostUser: effectiveIsHost,
+                  ),
+                ],
+              ),
             ),
           ),
         );
@@ -140,33 +142,46 @@ class _JoinTabState extends State<JoinTab> {
   }
 
   Widget _buildUserCard(String userName, String userRole) {
+    final isHostRole = userRole == 'host';
     return Container(
-      padding: const EdgeInsets.all(15),
+      padding: const EdgeInsets.all(AppSpacing.lg),
       decoration: BoxDecoration(
-        color: Colors.grey[100],
-        borderRadius: BorderRadius.circular(10),
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(AppRadius.md),
+        border: Border.all(color: AppColors.borderSubtle),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const Icon(Icons.account_circle, color: Colors.grey),
-          const SizedBox(width: 10),
-          Text(
-            userName.isNotEmpty ? userName : "User",
-            style: const TextStyle(fontWeight: FontWeight.bold),
+          const Icon(Icons.account_circle, color: AppColors.textSecondary),
+          const SizedBox(width: AppSpacing.sm),
+          Flexible(
+            child: Text(
+              userName.isNotEmpty ? userName : "User",
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                fontWeight: FontWeight.bold,
+                color: AppColors.textPrimary,
+              ),
+            ),
           ),
-          const SizedBox(width: 10),
+          const SizedBox(width: AppSpacing.sm),
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.sm,
+              vertical: AppSpacing.xs,
+            ),
             decoration: BoxDecoration(
-              color: userRole == 'host'
-                  ? const Color(0xFFA01C1C)
-                  : Colors.blueGrey,
-              borderRadius: BorderRadius.circular(20),
+              color: isHostRole ? AppColors.accentGold : AppColors.badgeNeutral,
+              borderRadius: BorderRadius.circular(AppRadius.sm),
             ),
             child: Text(
               userRole.toUpperCase(),
-              style: const TextStyle(color: Colors.white, fontSize: 10),
+              style: const TextStyle(
+                color: AppColors.textOnPrimary,
+                fontSize: 11,
+                fontWeight: FontWeight.bold,
+              ),
             ),
           ),
         ],
@@ -176,18 +191,18 @@ class _JoinTabState extends State<JoinTab> {
 
   Widget _buildInfoCard(bool isHostMode) {
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(AppSpacing.md),
       decoration: BoxDecoration(
-        color: const Color(0xFFA01C1C).withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(12),
+        color: AppColors.backgroundWarm,
+        borderRadius: BorderRadius.circular(AppRadius.md),
         border: Border.all(
-          color: const Color(0xFFA01C1C).withValues(alpha: 0.3),
+          color: AppColors.primary.withValues(alpha: 0.35),
         ),
       ),
       child: Row(
         children: [
-          const Icon(Icons.info, color: Color(0xFFA01C1C)),
-          const SizedBox(width: 12),
+          const Icon(Icons.info_outline, color: AppColors.primary),
+          const SizedBox(width: AppSpacing.md),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -196,15 +211,18 @@ class _JoinTabState extends State<JoinTab> {
                   "🎙️ Audio Room Zego",
                   style: TextStyle(
                     fontWeight: FontWeight.bold,
-                    color: Color(0xFFA01C1C),
+                    color: AppColors.primary,
                   ),
                 ),
-                const SizedBox(height: 4),
+                const SizedBox(height: AppSpacing.xs),
                 Text(
                   isHostMode
                       ? "Sebagai Host, Anda bisa membuat room baru"
                       : "Sebagai Peserta, Anda bisa langsung join room",
-                  style: const TextStyle(fontSize: 12, color: Colors.grey),
+                  style: const TextStyle(
+                    fontSize: 13,
+                    color: AppColors.textSecondary,
+                  ),
                 ),
               ],
             ),
@@ -223,12 +241,6 @@ class _JoinTabState extends State<JoinTab> {
       width: double.infinity,
       height: 50,
       child: ElevatedButton(
-        style: ElevatedButton.styleFrom(
-          backgroundColor: const Color(0xFFA01C1C),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-        ),
         onPressed: () => _joinRoom(
           userName: userName,
           userId: userId,
@@ -236,7 +248,7 @@ class _JoinTabState extends State<JoinTab> {
         ),
         child: const Text(
           "GABUNG AUDIO ROOM",
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+          style: TextStyle(fontWeight: FontWeight.bold),
         ),
       ),
     );
@@ -250,7 +262,10 @@ class _JoinTabState extends State<JoinTab> {
     final roomID = _roomIDController.text.trim();
     if (roomID.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Silakan isi Room ID")),
+        const SnackBar(
+          content: Text("Silakan isi Room ID"),
+          backgroundColor: AppColors.error,
+        ),
       );
       return;
     }

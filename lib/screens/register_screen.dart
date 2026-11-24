@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+
+import '../core/theme/app_theme.dart';
 import '../logic/auth/auth_bloc.dart';
 
 class RegisterScreen extends StatefulWidget {
@@ -25,65 +27,75 @@ class _RegisterScreenState extends State<RegisterScreen> {
     super.dispose();
   }
 
+  void _submitRegister() {
+    if (_formKey.currentState?.validate() != true) return;
+    context.read<AuthBloc>().add(
+          RegisterRequested(
+            nameController.text.trim(),
+            usernameController.text.trim(),
+            passwordController.text,
+          ),
+        );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: SafeArea(
         child: BlocConsumer<AuthBloc, AuthState>(
           listener: (context, state) {
-            // [UBAH DISINI] Cek state RegisterSuccess
             if (state is RegisterSuccess) {
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(
                   content: Text("Registrasi Berhasil! Silakan Login."),
-                  backgroundColor: Colors.green,
+                  backgroundColor: AppColors.success,
                 ),
               );
-              Navigator.pop(
-                  context); // Ini akan membawa user kembali ke Login Screen
+              Navigator.pop(context);
             } else if (state is AuthFailure) {
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
-                    content: Text(state.error),
-                    backgroundColor: const Color(0xFFA01C1C)),
+                  content: Text(state.error),
+                  backgroundColor: AppColors.error,
+                ),
               );
             }
           },
           builder: (context, state) {
             return Center(
               child: SingleChildScrollView(
-                padding: const EdgeInsets.all(20.0),
+                padding: const EdgeInsets.all(AppSpacing.xl),
                 child: Form(
                   key: _formKey,
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
-                      // Logo
-                      Image.asset('assets/logo_login.png', height: 100),
-                      const SizedBox(height: 20),
-
-                      // Judul Halaman
+                      Image.asset(
+                        'assets/logo_login.png',
+                        height: 100,
+                        semanticLabel: 'Logo Belajar Mabrur',
+                      ),
+                      const SizedBox(height: AppSpacing.xl),
                       const Text(
                         "Register Akun",
                         style: TextStyle(
-                            fontSize: 24,
-                            fontWeight: FontWeight.bold,
-                            color: Color(0xFFA01C1C)),
+                          fontSize: 24,
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.primary,
+                        ),
                       ),
-                      const SizedBox(height: 10),
+                      const SizedBox(height: AppSpacing.sm),
                       const Text(
                         "Lengkapi data diri Anda",
-                        style: TextStyle(color: Colors.grey),
+                        style: TextStyle(color: AppColors.textSecondary),
                       ),
-                      const SizedBox(height: 30),
-
-                      // Input Nama
+                      const SizedBox(height: 28),
                       TextFormField(
                         controller: nameController,
+                        textInputAction: TextInputAction.next,
                         decoration: const InputDecoration(
                           labelText: "Nama Lengkap",
-                          border: OutlineInputBorder(),
                           prefixIcon: Icon(Icons.badge),
                         ),
                         validator: (value) {
@@ -93,14 +105,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           return null;
                         },
                       ),
-                      const SizedBox(height: 15),
-
-                      // Input Username
+                      const SizedBox(height: AppSpacing.lg),
                       TextFormField(
                         controller: usernameController,
+                        textInputAction: TextInputAction.next,
                         decoration: const InputDecoration(
                           labelText: "Username",
-                          border: OutlineInputBorder(),
                           prefixIcon: Icon(Icons.person),
                         ),
                         validator: (value) {
@@ -113,21 +123,23 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           return null;
                         },
                       ),
-                      const SizedBox(height: 15),
-
-                      // Input Password
+                      const SizedBox(height: AppSpacing.lg),
                       TextFormField(
                         controller: passwordController,
+                        textInputAction: TextInputAction.done,
+                        onFieldSubmitted: (_) => _submitRegister(),
                         decoration: InputDecoration(
                           labelText: "Password",
-                          border: const OutlineInputBorder(),
                           prefixIcon: const Icon(Icons.lock),
                           suffixIcon: IconButton(
+                            tooltip: _isObscure
+                                ? 'Tampilkan password'
+                                : 'Sembunyikan password',
                             icon: Icon(
                               _isObscure
                                   ? Icons.visibility
                                   : Icons.visibility_off,
-                              color: Colors.grey,
+                              color: AppColors.textSecondary,
                             ),
                             onPressed: () {
                               setState(() {
@@ -147,50 +159,43 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           return null;
                         },
                       ),
-                      const SizedBox(height: 25),
-
-                      // Tombol Register
+                      const SizedBox(height: AppSpacing.xxl),
                       SizedBox(
                         width: double.infinity,
                         height: 50,
                         child: ElevatedButton(
-                          style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFFA01C1C)),
-                          // Disable tombol saat loading
-                          onPressed: state is AuthLoading
-                              ? null
-                              : () {
-                                  if (_formKey.currentState!.validate()) {
-                                    context.read<AuthBloc>().add(
-                                          RegisterRequested(
-                                            nameController.text.trim(),
-                                            usernameController.text.trim(),
-                                            passwordController.text,
-                                          ),
-                                        );
-                                  }
-                                },
+                          onPressed:
+                              state is AuthLoading ? null : _submitRegister,
                           child: state is AuthLoading
-                              ? const CircularProgressIndicator(
-                                  color: Colors.white)
-                              : const Text("REGISTER",
-                                  style: TextStyle(color: Colors.white)),
+                              ? const SizedBox(
+                                  width: 22,
+                                  height: 22,
+                                  child: CircularProgressIndicator(
+                                    color: AppColors.textOnPrimary,
+                                    strokeWidth: 2.5,
+                                  ),
+                                )
+                              : const Text(
+                                  "REGISTER",
+                                  style: TextStyle(fontWeight: FontWeight.bold),
+                                ),
                         ),
                       ),
-
-                      const SizedBox(height: 20),
-
-                      // Clickable Text Login
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
+                      const SizedBox(height: AppSpacing.md),
+                      Wrap(
+                        alignment: WrapAlignment.center,
+                        crossAxisAlignment: WrapCrossAlignment.center,
                         children: [
-                          const Text("Sudah punya akun? "),
-                          GestureDetector(
-                            onTap: () => Navigator.pop(context),
+                          const Text(
+                            "Sudah punya akun?",
+                            style: TextStyle(color: AppColors.textPrimary),
+                          ),
+                          TextButton(
+                            onPressed: () => Navigator.pop(context),
                             child: const Text(
                               "Login",
                               style: TextStyle(
-                                color: Color(0xFFA01C1C),
+                                color: AppColors.primary,
                                 fontWeight: FontWeight.bold,
                               ),
                             ),

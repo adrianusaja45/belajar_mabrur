@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../core/theme/app_theme.dart';
 import '../data/repositories/auth_repository.dart';
 import '../logic/auth/auth_bloc.dart';
 
@@ -23,7 +24,10 @@ class AccountTab extends StatelessWidget {
     if (updated == true && context.mounted) {
       context.read<AuthBloc>().add(ProfileRefreshRequested());
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Profil berhasil diperbarui")),
+        const SnackBar(
+          content: Text("Profil berhasil diperbarui"),
+          backgroundColor: AppColors.success,
+        ),
       );
     }
   }
@@ -36,7 +40,10 @@ class AccountTab extends StatelessWidget {
 
     if (changed == true && context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Password berhasil diubah")),
+        const SnackBar(
+          content: Text("Password berhasil diubah"),
+          backgroundColor: AppColors.success,
+        ),
       );
     }
   }
@@ -44,17 +51,22 @@ class AccountTab extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: AppColors.background,
       body: BlocBuilder<AuthBloc, AuthState>(
         builder: (context, state) {
           if (state is AuthLoading) {
-            return const Center(child: CircularProgressIndicator());
+            return Center(
+              child: Semantics(
+                label: 'Memuat data akun',
+                child: const CircularProgressIndicator(),
+              ),
+            );
           }
 
           if (state is! AuthSuccess) {
             return Center(
               child: Padding(
-                padding: const EdgeInsets.all(24),
+                padding: const EdgeInsets.all(AppSpacing.xxl),
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
@@ -63,8 +75,9 @@ class AccountTab extends StatelessWidget {
                           ? "Gagal memuat profil: ${state.error}"
                           : "Profil belum tersedia.",
                       textAlign: TextAlign.center,
+                      style: const TextStyle(color: AppColors.textPrimary),
                     ),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: AppSpacing.md),
                     ElevatedButton(
                       onPressed: () => context
                           .read<AuthBloc>()
@@ -84,52 +97,80 @@ class AccountTab extends StatelessWidget {
               children: [
                 Container(
                   width: double.infinity,
-                  padding: const EdgeInsets.only(top: 80, bottom: 40),
                   decoration: const BoxDecoration(
-                    color: Color(0xFFA01C1C),
-                    borderRadius:
-                        BorderRadius.vertical(bottom: Radius.circular(30)),
+                    color: AppColors.primary,
+                    borderRadius: BorderRadius.vertical(
+                      bottom: Radius.circular(AppRadius.lg),
+                    ),
                   ),
-                  child: Column(
-                    children: [
-                      const CircleAvatar(
-                        radius: 50,
-                        backgroundColor: Colors.white,
-                        child: Icon(Icons.person, size: 60, color: Colors.grey),
+                  child: SafeArea(
+                    bottom: false,
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(
+                        AppSpacing.xl,
+                        AppSpacing.xxl,
+                        AppSpacing.xl,
+                        32,
                       ),
-                      const SizedBox(height: 15),
-                      Text(
-                        user.name,
-                        style: const TextStyle(
-                          fontSize: 22,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
-                        ),
+                      child: Column(
+                        children: [
+                          const CircleAvatar(
+                            radius: 46,
+                            backgroundColor: AppColors.background,
+                            child: Icon(
+                              Icons.person,
+                              size: 54,
+                              color: AppColors.textSecondary,
+                            ),
+                          ),
+                          const SizedBox(height: AppSpacing.lg),
+                          Text(
+                            user.name,
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(
+                              fontSize: 22,
+                              fontWeight: FontWeight.bold,
+                              color: AppColors.textOnPrimary,
+                            ),
+                          ),
+                          const SizedBox(height: AppSpacing.xs),
+                          Text(
+                            "@${user.username}",
+                            style: const TextStyle(
+                              color: AppColors.textOnPrimaryMuted,
+                              fontSize: 14,
+                            ),
+                          ),
+                          const SizedBox(height: AppSpacing.sm),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: AppSpacing.md,
+                              vertical: AppSpacing.xs,
+                            ),
+                            decoration: BoxDecoration(
+                              color: AppColors.background,
+                              borderRadius: BorderRadius.circular(AppRadius.sm),
+                            ),
+                            child: Text(
+                              user.role.toUpperCase(),
+                              style: TextStyle(
+                                color: user.isHost
+                                    ? AppColors.accentGold
+                                    : AppColors.badgeNeutral,
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
-                      Text(
-                        "@${user.username}",
-                        style: const TextStyle(color: Colors.white70),
-                      ),
-                      const SizedBox(height: 5),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 10, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: Colors.white24,
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: Text(
-                          user.role.toUpperCase(),
-                          style: const TextStyle(
-                              color: Colors.white, fontSize: 10),
-                        ),
-                      ),
-                    ],
+                    ),
                   ),
                 ),
-                const SizedBox(height: 20),
+                const SizedBox(height: AppSpacing.xl),
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: AppSpacing.xl),
                   child: Column(
                     children: [
                       if (user.isHost) ...[
@@ -142,19 +183,19 @@ class AccountTab extends StatelessWidget {
                             user.username,
                           ),
                         ),
-                        const SizedBox(height: 10),
+                        const SizedBox(height: AppSpacing.md),
                         _buildMenuTile(
                           icon: Icons.lock_reset,
                           title: "Ganti Password",
                           onTap: () => _showChangePasswordDialog(context),
                         ),
-                        const SizedBox(height: 10),
+                        const SizedBox(height: AppSpacing.md),
                       ],
                       _buildMenuTile(
                         icon: Icons.logout,
                         title: "Logout",
-                        color: Colors.red[50],
-                        textColor: const Color(0xFFA01C1C),
+                        color: AppColors.errorSurface,
+                        textColor: AppColors.primary,
                         onTap: () {
                           showDialog(
                             context: context,
@@ -165,7 +206,12 @@ class AccountTab extends StatelessWidget {
                               actions: [
                                 TextButton(
                                   onPressed: () => Navigator.pop(dialogContext),
-                                  child: const Text("Batal"),
+                                  child: const Text(
+                                    "Batal",
+                                    style: TextStyle(
+                                      color: AppColors.textSecondary,
+                                    ),
+                                  ),
                                 ),
                                 TextButton(
                                   onPressed: () {
@@ -176,7 +222,10 @@ class AccountTab extends StatelessWidget {
                                   },
                                   child: const Text(
                                     "Ya, Logout",
-                                    style: TextStyle(color: Color(0xFFA01C1C)),
+                                    style: TextStyle(
+                                      color: AppColors.primary,
+                                      fontWeight: FontWeight.bold,
+                                    ),
                                   ),
                                 ),
                               ],
@@ -202,18 +251,26 @@ class AccountTab extends StatelessWidget {
     Color? color,
     Color? textColor,
   }) {
+    final resolvedTextColor = textColor ?? AppColors.textPrimary;
     return ListTile(
-      tileColor: color ?? Colors.grey[100],
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-      leading: Icon(icon, color: textColor ?? Colors.black87),
+      minTileHeight: 56,
+      tileColor: color ?? AppColors.surface,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(AppRadius.md),
+        side: const BorderSide(color: AppColors.borderSubtle),
+      ),
+      leading: Icon(icon, color: resolvedTextColor),
       title: Text(
         title,
         style: TextStyle(
-          color: textColor ?? Colors.black87,
+          color: resolvedTextColor,
           fontWeight: FontWeight.bold,
         ),
       ),
-      trailing: const Icon(Icons.chevron_right, color: Colors.grey),
+      trailing: Icon(
+        Icons.chevron_right,
+        color: textColor ?? AppColors.textSecondary,
+      ),
       onTap: onTap,
     );
   }
@@ -266,7 +323,10 @@ class _EditProfileDialogState extends State<_EditProfileDialog> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Error: $e"), backgroundColor: Colors.red),
+        SnackBar(
+          content: Text("Error: $e"),
+          backgroundColor: AppColors.error,
+        ),
       );
     } finally {
       if (mounted) {
@@ -294,7 +354,7 @@ class _EditProfileDialogState extends State<_EditProfileDialog> {
                 return null;
               },
             ),
-            const SizedBox(height: 10),
+            const SizedBox(height: AppSpacing.md),
             TextFormField(
               controller: _usernameController,
               decoration: const InputDecoration(labelText: "Username"),
@@ -314,23 +374,23 @@ class _EditProfileDialogState extends State<_EditProfileDialog> {
       actions: [
         TextButton(
           onPressed: _isLoading ? null : () => Navigator.pop(context, false),
-          child: const Text("Batal"),
+          child: const Text(
+            "Batal",
+            style: TextStyle(color: AppColors.textSecondary),
+          ),
         ),
         ElevatedButton(
-          style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xFFA01C1C),
-          ),
           onPressed: _isLoading ? null : _submit,
           child: _isLoading
               ? const SizedBox(
                   width: 20,
                   height: 20,
                   child: CircularProgressIndicator(
-                    color: Colors.white,
+                    color: AppColors.textOnPrimary,
                     strokeWidth: 2,
                   ),
                 )
-              : const Text("SIMPAN", style: TextStyle(color: Colors.white)),
+              : const Text("SIMPAN"),
         ),
       ],
     );
@@ -373,7 +433,10 @@ class _ChangePasswordDialogState extends State<_ChangePasswordDialog> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Gagal: $e"), backgroundColor: Colors.red),
+        SnackBar(
+          content: Text("Gagal: $e"),
+          backgroundColor: AppColors.error,
+        ),
       );
     } finally {
       if (mounted) {
@@ -397,8 +460,13 @@ class _ChangePasswordDialogState extends State<_ChangePasswordDialog> {
               decoration: InputDecoration(
                 labelText: "Password Lama",
                 suffixIcon: IconButton(
+                  tooltip: _obscureOld
+                      ? 'Tampilkan password lama'
+                      : 'Sembunyikan password lama',
                   icon: Icon(
-                      _obscureOld ? Icons.visibility : Icons.visibility_off),
+                    _obscureOld ? Icons.visibility : Icons.visibility_off,
+                    color: AppColors.textSecondary,
+                  ),
                   onPressed: () => setState(() => _obscureOld = !_obscureOld),
                 ),
               ),
@@ -409,15 +477,20 @@ class _ChangePasswordDialogState extends State<_ChangePasswordDialog> {
                 return null;
               },
             ),
-            const SizedBox(height: 10),
+            const SizedBox(height: AppSpacing.md),
             TextFormField(
               controller: _newPassController,
               obscureText: _obscureNew,
               decoration: InputDecoration(
                 labelText: "Password Baru",
                 suffixIcon: IconButton(
+                  tooltip: _obscureNew
+                      ? 'Tampilkan password baru'
+                      : 'Sembunyikan password baru',
                   icon: Icon(
-                      _obscureNew ? Icons.visibility : Icons.visibility_off),
+                    _obscureNew ? Icons.visibility : Icons.visibility_off,
+                    color: AppColors.textSecondary,
+                  ),
                   onPressed: () => setState(() => _obscureNew = !_obscureNew),
                 ),
               ),
@@ -437,23 +510,23 @@ class _ChangePasswordDialogState extends State<_ChangePasswordDialog> {
       actions: [
         TextButton(
           onPressed: _isLoading ? null : () => Navigator.pop(context, false),
-          child: const Text("Batal"),
+          child: const Text(
+            "Batal",
+            style: TextStyle(color: AppColors.textSecondary),
+          ),
         ),
         ElevatedButton(
-          style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xFFA01C1C),
-          ),
           onPressed: _isLoading ? null : _submit,
           child: _isLoading
               ? const SizedBox(
                   width: 20,
                   height: 20,
                   child: CircularProgressIndicator(
-                    color: Colors.white,
+                    color: AppColors.textOnPrimary,
                     strokeWidth: 2,
                   ),
                 )
-              : const Text("UBAH", style: TextStyle(color: Colors.white)),
+              : const Text("UBAH"),
         ),
       ],
     );

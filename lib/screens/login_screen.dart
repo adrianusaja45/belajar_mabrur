@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../core/theme/app_theme.dart';
 import '../logic/auth/auth_bloc.dart';
 import 'dashboard_screen.dart';
 import 'register_screen.dart';
@@ -45,7 +46,7 @@ class _LoginScreenState extends State<LoginScreen> {
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
                   content: Text(state.message),
-                  backgroundColor: Colors.green,
+                  backgroundColor: AppColors.success,
                 ),
               );
 
@@ -57,41 +58,49 @@ class _LoginScreenState extends State<LoginScreen> {
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
                   content: Text(state.error),
-                  backgroundColor: const Color(0xFFA01C1C),
+                  backgroundColor: AppColors.error,
                 ),
               );
             }
           },
           builder: (context, state) {
             if (state is AuthLoading) {
-              return const Center(child: CircularProgressIndicator());
+              return Center(
+                child: Semantics(
+                  label: 'Sedang memproses login',
+                  child: const CircularProgressIndicator(),
+                ),
+              );
             }
 
             return Center(
               child: SingleChildScrollView(
-                padding: const EdgeInsets.all(20.0),
+                padding: const EdgeInsets.all(AppSpacing.xl),
                 child: Form(
                   key: _formKey,
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Image.asset('assets/logo_login.png', height: 100),
-                      const SizedBox(height: 30),
+                      Image.asset(
+                        'assets/logo_login.png',
+                        height: 100,
+                        semanticLabel: 'Logo Belajar Mabrur',
+                      ),
+                      const SizedBox(height: 28),
                       const Text(
                         "Silakan Login",
                         style: TextStyle(
                           fontSize: 20,
                           fontWeight: FontWeight.bold,
-                          color: Color(0xFFA01C1C),
+                          color: AppColors.primary,
                         ),
                       ),
-                      const SizedBox(height: 20),
+                      const SizedBox(height: AppSpacing.xl),
                       TextFormField(
                         controller: usernameController,
                         textInputAction: TextInputAction.next,
                         decoration: const InputDecoration(
                           labelText: "Username",
-                          border: OutlineInputBorder(),
                           prefixIcon: Icon(Icons.person),
                         ),
                         validator: (value) {
@@ -101,21 +110,23 @@ class _LoginScreenState extends State<LoginScreen> {
                           return null;
                         },
                       ),
-                      const SizedBox(height: 15),
+                      const SizedBox(height: AppSpacing.lg),
                       TextFormField(
                         controller: passwordController,
                         textInputAction: TextInputAction.done,
                         onFieldSubmitted: (_) => _submitLogin(),
                         decoration: InputDecoration(
                           labelText: "Password",
-                          border: const OutlineInputBorder(),
                           prefixIcon: const Icon(Icons.lock),
                           suffixIcon: IconButton(
+                            tooltip: _isObscure
+                                ? 'Tampilkan password'
+                                : 'Sembunyikan password',
                             icon: Icon(
                               _isObscure
                                   ? Icons.visibility
                                   : Icons.visibility_off,
-                              color: Colors.grey,
+                              color: AppColors.textSecondary,
                             ),
                             onPressed: () =>
                                 setState(() => _isObscure = !_isObscure),
@@ -129,28 +140,29 @@ class _LoginScreenState extends State<LoginScreen> {
                           return null;
                         },
                       ),
-                      const SizedBox(height: 20),
+                      const SizedBox(height: AppSpacing.xl),
                       SizedBox(
                         width: double.infinity,
                         height: 50,
                         child: ElevatedButton(
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFFA01C1C),
-                          ),
                           onPressed: _submitLogin,
                           child: const Text(
                             "LOGIN",
-                            style: TextStyle(color: Colors.white),
+                            style: TextStyle(fontWeight: FontWeight.bold),
                           ),
                         ),
                       ),
-                      const SizedBox(height: 20),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
+                      const SizedBox(height: AppSpacing.md),
+                      Wrap(
+                        alignment: WrapAlignment.center,
+                        crossAxisAlignment: WrapCrossAlignment.center,
                         children: [
-                          const Text("Belum punya akun? "),
-                          GestureDetector(
-                            onTap: () => Navigator.push(
+                          const Text(
+                            "Belum punya akun?",
+                            style: TextStyle(color: AppColors.textPrimary),
+                          ),
+                          TextButton(
+                            onPressed: () => Navigator.push(
                               context,
                               MaterialPageRoute(
                                 builder: (context) => const RegisterScreen(),
@@ -159,7 +171,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             child: const Text(
                               "Register",
                               style: TextStyle(
-                                color: Color(0xFFA01C1C),
+                                color: AppColors.primary,
                                 fontWeight: FontWeight.bold,
                               ),
                             ),

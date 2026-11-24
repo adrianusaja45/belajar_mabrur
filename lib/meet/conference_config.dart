@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:zego_uikit_prebuilt_live_audio_room/zego_uikit_prebuilt_live_audio_room.dart';
 
 import '../../core/constants.dart';
+import '../../core/theme/app_theme.dart';
 
 class ConferenceConfig {
   static ZegoUIKitPrebuiltLiveAudioRoomConfig get({
@@ -86,7 +87,7 @@ class ConferenceConfig {
         decoration: BoxDecoration(
           color: AppConstants.surfaceColor,
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: Colors.grey.shade300, width: 1),
+          border: Border.all(color: AppColors.borderSubtle, width: 1),
           boxShadow: [
             BoxShadow(
               color: Colors.black.withValues(alpha: 0.05),
@@ -115,7 +116,8 @@ class ConferenceConfig {
           children: [
             CircleAvatar(
               radius: avatarRadius,
-              backgroundColor: AppConstants.primaryColor.withValues(alpha: 0.15),
+              backgroundColor:
+                  AppConstants.primaryColor.withValues(alpha: 0.15),
               child: Text(
                 user.name.isNotEmpty ? user.name[0].toUpperCase() : "?",
                 style: TextStyle(

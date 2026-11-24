@@ -2,6 +2,7 @@ import 'package:belajar_mabrur/screens/home_tab.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../core/theme/app_theme.dart';
 import '../logic/auth/auth_bloc.dart';
 import '../logic/dashboard/dashboard_cubit.dart';
 import '../logic/dashboard/dashboard_state.dart';
@@ -49,28 +50,32 @@ class DashboardScreen extends StatelessWidget {
           builder: (context, state) {
             return Container(
               decoration: const BoxDecoration(
-                border:
-                    Border(top: BorderSide(color: Colors.black12, width: 0.5)),
+                border: Border(
+                  top: BorderSide(color: AppColors.borderSubtle, width: 1),
+                ),
               ),
               child: BottomNavigationBar(
                 currentIndex: state.tabIndex,
                 onTap: (index) {
                   context.read<DashboardCubit>().changeTab(index);
                 },
-                type: BottomNavigationBarType.fixed,
-                backgroundColor: Colors.white,
-                selectedItemColor: const Color(0xFFA01C1C),
-                unselectedItemColor: Colors.grey,
-                showUnselectedLabels: true,
                 items: const [
                   BottomNavigationBarItem(
-                      icon: Icon(Icons.home), label: 'Home'),
+                    icon: Icon(Icons.home),
+                    label: 'Home',
+                  ),
                   BottomNavigationBarItem(
-                      icon: Icon(Icons.map_outlined), label: 'SOS Map'),
+                    icon: Icon(Icons.map_outlined),
+                    label: 'SOS Map',
+                  ),
                   BottomNavigationBarItem(
-                      icon: Icon(Icons.video_call), label: 'Meet'),
+                    icon: Icon(Icons.video_call),
+                    label: 'Meet',
+                  ),
                   BottomNavigationBarItem(
-                      icon: Icon(Icons.person), label: 'Account'),
+                    icon: Icon(Icons.person),
+                    label: 'Account',
+                  ),
                 ],
               ),
             );

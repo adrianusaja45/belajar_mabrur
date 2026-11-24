@@ -9,7 +9,7 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:google_maps_flutter_android/google_maps_flutter_android.dart';
 import 'package:google_maps_flutter_platform_interface/google_maps_flutter_platform_interface.dart';
 import 'package:zego_uikit_prebuilt_live_audio_room/zego_uikit_prebuilt_live_audio_room.dart';
-import 'core/constants.dart';
+import 'core/theme/app_theme.dart';
 import 'data/repositories/auth_repository.dart';
 import 'data/repositories/content_repository.dart';
 import 'data/repositories/sos_repository.dart';
@@ -257,23 +257,7 @@ class _MyAppState extends State<MyApp> {
             },
           },
 
-          theme: ThemeData(
-            useMaterial3: true,
-            colorScheme: ColorScheme.fromSeed(
-              seedColor: AppConstants.primaryColor,
-              primary: AppConstants.primaryColor,
-              error: AppConstants.errorColor,
-              surface: AppConstants.backgroundColor,
-            ),
-            scaffoldBackgroundColor: AppConstants.backgroundColor,
-            progressIndicatorTheme: const ProgressIndicatorThemeData(
-              color: AppConstants.primaryColor,
-            ),
-            appBarTheme: const AppBarTheme(
-              backgroundColor: AppConstants.backgroundColor,
-              surfaceTintColor: Colors.transparent,
-            ),
-          ),
+          theme: AppTheme.lightTheme,
 
           home: const SplashScreen(),
         ),

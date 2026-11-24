@@ -1,26 +1,19 @@
+import 'package:belajar_mabrur/main.dart';
 import 'package:flutter/material.dart';
-
-import 'package:flutter/services.dart'; // Untuk Clipboard
-
+import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-
 import 'package:zego_uikit_prebuilt_live_audio_room/zego_uikit_prebuilt_live_audio_room.dart';
 
-import 'package:belajar_mabrur/main.dart';
-
 import '../../core/constants.dart';
+import '../../core/theme/app_theme.dart';
 import '../../meet/conference_config.dart';
 import 'audio_room_controller.dart';
 
 class AudioRoomScreen extends StatefulWidget {
   final String roomID;
-
   final bool isHost;
-
   final String userID;
-
   final String displayName;
-
   final String hostUserID;
 
   const AudioRoomScreen({
@@ -56,30 +49,17 @@ class _AudioRoomScreenState extends State<AudioRoomScreen> {
 
   Future<void> _markRoomAsCreated() async {
     final prefs = await SharedPreferences.getInstance();
-
-    final roomCreatedKey = 'room_${widget.roomID}_created';
-
-    final roomHostKey = 'room_${widget.roomID}_host';
-
-    await prefs.setBool(roomCreatedKey, true);
-
-    await prefs.setString(roomHostKey, widget.displayName);
-
+    await prefs.setBool('room_${widget.roomID}_created', true);
+    await prefs.setString('room_${widget.roomID}_host', widget.displayName);
     debugPrint(
-        'AudioRoomScreen: Room ${widget.roomID} marked as created by ${widget.displayName}');
+      'AudioRoomScreen: Room ${widget.roomID} marked as created by ${widget.displayName}',
+    );
   }
 
   Future<void> _clearRoomFlag() async {
     final prefs = await SharedPreferences.getInstance();
-
-    final roomCreatedKey = 'room_${widget.roomID}_created';
-
-    final roomHostKey = 'room_${widget.roomID}_host';
-
-    await prefs.remove(roomCreatedKey);
-
-    await prefs.remove(roomHostKey);
-
+    await prefs.remove('room_${widget.roomID}_created');
+    await prefs.remove('room_${widget.roomID}_host');
     debugPrint('AudioRoomScreen: Room ${widget.roomID} flag cleared');
   }
 
@@ -90,19 +70,23 @@ class _AudioRoomScreenState extends State<AudioRoomScreen> {
       builder: (_) => AlertDialog(
         title: const Text("End Room"),
         content: const Text(
-            "End room akan mengakhiri sesi untuk semua pengguna. Lanjutkan? "),
+          "End room akan mengakhiri sesi untuk semua pengguna. Lanjutkan?",
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text("Batal", style: TextStyle(color: Colors.grey)),
+            child: const Text(
+              "Batal",
+              style: TextStyle(color: AppColors.textSecondary),
+            ),
           ),
           ElevatedButton(
             onPressed: () => Navigator.pop(context, true),
             style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red,
+              backgroundColor: AppColors.error,
+              foregroundColor: AppColors.textOnPrimary,
             ),
-            child:
-                const Text("End Room", style: TextStyle(color: Colors.white)),
+            child: const Text("End Room"),
           ),
         ],
       ),
@@ -120,22 +104,25 @@ class _AudioRoomScreenState extends State<AudioRoomScreen> {
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text("Apakah Anda yakin ingin keluar dari room? "),
-            const SizedBox(height: 12),
+            const Text("Apakah Anda yakin ingin keluar dari room?"),
+            const SizedBox(height: AppSpacing.md),
             Container(
-              padding: const EdgeInsets.all(8),
+              padding: const EdgeInsets.all(AppSpacing.md),
               decoration: BoxDecoration(
-                color: Colors.blue.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(8),
+                color: AppColors.infoSurface,
+                borderRadius: BorderRadius.circular(AppRadius.sm),
               ),
               child: const Row(
                 children: [
-                  Icon(Icons.info, size: 16, color: Colors.blue),
-                  SizedBox(width: 8),
+                  Icon(Icons.info_outline, size: 18, color: AppColors.infoText),
+                  SizedBox(width: AppSpacing.sm),
                   Expanded(
                     child: Text(
                       "💡 Gunakan tombol minimize di atas untuk tetap mendengar",
-                      style: TextStyle(fontSize: 11, color: Colors.blue),
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: AppColors.infoText,
+                      ),
                     ),
                   ),
                 ],
@@ -146,7 +133,10 @@ class _AudioRoomScreenState extends State<AudioRoomScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text("Batal", style: TextStyle(color: Colors.grey)),
+            child: const Text(
+              "Batal",
+              style: TextStyle(color: AppColors.textSecondary),
+            ),
           ),
           ElevatedButton(
             onPressed: () => Navigator.pop(context, true),
@@ -192,13 +182,6 @@ class _AudioRoomScreenState extends State<AudioRoomScreen> {
           events: ZegoUIKitPrebuiltLiveAudioRoomEvents(
             onLeaveConfirmation: (event, defaultAction) async {
               debugPrint('onLeaveConfirmation triggered');
-
-// --- PERBAIKAN DI SINI ---
-
-// Gunakan context dari navigatorKey global.
-
-// Jika null (jarang terjadi), fallback ke context lokal.
-
               final validContext = navigatorKey.currentContext ?? context;
 
               if (widget.isHost) {
@@ -225,7 +208,7 @@ class _AudioRoomScreenState extends State<AudioRoomScreen> {
 
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
-                      content: Text("Host telah mengakhiri room. "),
+                      content: Text("Host telah mengakhiri room."),
                     ),
                   );
 
@@ -235,19 +218,6 @@ class _AudioRoomScreenState extends State<AudioRoomScreen> {
             ),
           ),
         ),
-
-// ============================================
-
-// ROOM INFO OVERLAY (Room ID Badge)
-
-// ============================================
-
-// ============================================
-
-// ROOM INFO OVERLAY (Room ID & Role Badge)
-
-// ============================================
-
         Positioned(
           top: 0,
           left: 0,
@@ -255,57 +225,65 @@ class _AudioRoomScreenState extends State<AudioRoomScreen> {
           child: SafeArea(
             child: Padding(
               padding: const EdgeInsets.only(
-                left: 16,
-
-                right: 16,
-
-                top:
-                    50, // Tambah margin atas agar tidak bertabrakan dengan tombol Zego
+                left: AppSpacing.lg,
+                right: AppSpacing.lg,
+                top: 50,
               ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
-// ROOM INFO BADGE
-
-                  Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                    decoration: BoxDecoration(
-                      color: Colors.black.withValues(alpha: 0.6),
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          'Room ID: ${widget.roomID}',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                            decoration: TextDecoration.none,
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        GestureDetector(
+                  Semantics(
+                    button: true,
+                    label: 'Salin Room ID ${widget.roomID}',
+                    child: Tooltip(
+                      message: 'Salin Room ID',
+                      child: Material(
+                        color: Colors.black.withValues(alpha: 0.72),
+                        borderRadius: BorderRadius.circular(AppRadius.md),
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(AppRadius.md),
                           onTap: () {
                             Clipboard.setData(
-                                ClipboardData(text: widget.roomID));
-
+                              ClipboardData(text: widget.roomID),
+                            );
                             ScaffoldMessenger.of(context).showSnackBar(
                               const SnackBar(
-                                content: Text('Room ID disalin! '),
+                                content: Text('Room ID disalin!'),
                                 duration: Duration(seconds: 1),
                               ),
                             );
                           },
-                          child: const Icon(
-                            Icons.copy,
-                            color: Colors.white70,
-                            size: 14,
+                          child: ConstrainedBox(
+                            constraints: const BoxConstraints(minHeight: 44),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 14,
+                                vertical: 10,
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    'Room ID: ${widget.roomID}',
+                                    style: const TextStyle(
+                                      color: AppColors.textOnPrimary,
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w600,
+                                      decoration: TextDecoration.none,
+                                    ),
+                                  ),
+                                  const SizedBox(width: AppSpacing.sm),
+                                  const Icon(
+                                    Icons.copy,
+                                    color: AppColors.textOnPrimary,
+                                    size: 18,
+                                  ),
+                                ],
+                              ),
+                            ),
                           ),
                         ),
-                      ],
+                      ),
                     ),
                   ),
                 ],

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:permission_handler/permission_handler.dart';
+import '../core/theme/app_theme.dart';
 import '../logic/auth/auth_bloc.dart';
 import 'login_screen.dart';
 import 'dashboard_screen.dart';
@@ -60,21 +61,31 @@ class _SplashScreenState extends State<SplashScreen> {
         }
       },
       child: Scaffold(
-        backgroundColor: const Color(0xFFA01C1C), // Merah Albirr
-        body: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              // Tambahkan error handling jika asset tidak ditemukan
-              Image.asset(
-                'assets/logo_splashcreen.png',
-                width: 150,
-                errorBuilder: (context, error, stackTrace) =>
-                    const Icon(Icons.mosque, size: 100, color: Colors.white),
-              ),
-              const SizedBox(height: 30),
-              const CircularProgressIndicator(color: Colors.white),
-            ],
+        backgroundColor: AppColors.primary,
+        body: SafeArea(
+          child: Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Image.asset(
+                  'assets/logo_splashcreen.png',
+                  width: 150,
+                  semanticLabel: 'Logo Belajar Mabrur',
+                  errorBuilder: (context, error, stackTrace) => const Icon(
+                    Icons.mosque,
+                    size: 100,
+                    color: AppColors.textOnPrimary,
+                  ),
+                ),
+                const SizedBox(height: 30),
+                Semantics(
+                  label: 'Memuat aplikasi Belajar Mabrur',
+                  child: const CircularProgressIndicator(
+                    color: AppColors.textOnPrimary,
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
