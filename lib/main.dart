@@ -213,8 +213,7 @@ class _MyAppState extends State<MyApp> {
         providers: [
           BlocProvider(
             create: (context) =>
-                AuthBloc(authRepository: context.read<AuthRepository>())
-                  ..add(CheckAuthStatus()),
+                AuthBloc(authRepository: context.read<AuthRepository>()),
           ),
           BlocProvider(
             create: (context) => DashboardCubit(

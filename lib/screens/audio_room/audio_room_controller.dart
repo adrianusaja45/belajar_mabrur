@@ -1,27 +1,20 @@
 import 'package:flutter/material.dart';
+import 'package:zego_uikit_prebuilt_live_audio_room/zego_uikit_prebuilt_live_audio_room.dart';
 
 class AudioRoomController {
   AudioRoomController._internal();
 
   static final AudioRoomController instance = AudioRoomController._internal();
 
-// Session Data
-
   String? roomID;
-
   String? userID;
-
   String? displayName;
-
   String? hostUserID;
-
   bool isHost = false;
 
-// Cek apakah sedang ada room aktif
-
-  bool get isRoomActive => roomID != null;
-
-// Set session info (Dipanggil saat Join Room)
+  bool get isRoomActive =>
+      roomID != null ||
+      ZegoUIKitPrebuiltLiveAudioRoomController().minimize.isMinimizing;
 
   void setSession({
     required String roomID,
@@ -31,33 +24,36 @@ class AudioRoomController {
     required bool isHost,
   }) {
     this.roomID = roomID;
-
     this.userID = userID;
-
     this.displayName = displayName;
-
     this.hostUserID = hostUserID;
-
     this.isHost = isHost;
-
-    debugPrint('AudioRoomController: Session Set -> Room: $roomID');
+    debugPrint('AudioRoomController: Session set -> Room: $roomID');
   }
 
-// Clear session info (Dipanggil saat Leave Room atau Logout)
-
-  void leaveRoom() {
-    debugPrint('AudioRoomController: Cleaning up session for Room: $roomID');
-
-// Clear session data
-
+  void clearSession() {
     roomID = null;
-
     userID = null;
-
     displayName = null;
-
     hostUserID = null;
-
     isHost = false;
+  }
+
+  Future<void> leaveRoom(BuildContext context) async {
+    final zegoController = ZegoUIKitPrebuiltLiveAudioRoomController();
+    if (!isRoomActive && !zegoController.minimize.isMinimizing) {
+      return;
+    }
+
+    debugPrint('AudioRoomController: Cleaning up session for Room: $roomID');
+    try {
+      if (context.mounted) {
+        await zegoController.leave(context, showConfirmation: false);
+      }
+    } catch (e) {
+      debugPrint('AudioRoomController: Failed to leave Zego room: $e');
+    } finally {
+      clearSession();
+    }
   }
 }

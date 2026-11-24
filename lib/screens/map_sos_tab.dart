@@ -6,6 +6,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../data/repositories/auth_repository.dart';
 import '../data/repositories/sos_repository.dart';
+import '../logic/auth/auth_bloc.dart';
 import '../logic/dashboard/dashboard_cubit.dart';
 import '../core/services/location_services.dart';
 import '../core/services/notification_service.dart';
@@ -38,14 +39,24 @@ class MapSosTabState extends State<MapSosTab> {
   }
 
   Future<void> _loadUserRole() async {
+    final authBlocState = context.read<AuthBloc>().state;
     final authRepository = context.read<AuthRepository>();
     final dashboardCubit = context.read<DashboardCubit>();
-    final prefs = await SharedPreferences.getInstance();
-    final role = prefs.getString('user_role') ?? 'user';
+
+    String role;
+    String groupId;
+    if (authBlocState is AuthSuccess) {
+      role = authBlocState.user.role;
+      groupId = authBlocState.user.groupId;
+    } else {
+      final prefs = await SharedPreferences.getInstance();
+      role = prefs.getString('user_role') ?? 'user';
+      groupId = await authRepository.getGroupId();
+    }
+
     if (mounted) setState(() => _userRole = role);
 
     if (role == 'host' && mounted) {
-      final groupId = await authRepository.getGroupId();
       try {
         await dashboardCubit.loadHistoryFromFirestore(groupId);
       } catch (e) {
@@ -105,13 +116,17 @@ class MapSosTabState extends State<MapSosTab> {
     setState(() => _isLoading = true);
 
     try {
+      final authState = context.read<AuthBloc>().state;
       final authRepository = context.read<AuthRepository>();
       final sosRepository = context.read<SosRepository>();
       final dashboardCubit = context.read<DashboardCubit>();
 
-      final userProfile = await authRepository.getProfile();
-      final String senderName = userProfile['name'] ?? "Seseorang";
-      final String groupId = userProfile['group_id']?.toString() ?? 'default';
+      final user = authState is AuthSuccess
+          ? authState.user
+          : await authRepository.getCachedUser();
+      final String senderName =
+          (user != null && user.name.isNotEmpty) ? user.name : "Seseorang";
+      final String groupId = user?.groupId ?? await authRepository.getGroupId();
 
       final position = await _locationService.getCurrentPosition();
       if (position == null) {

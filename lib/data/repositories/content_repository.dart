@@ -1,28 +1,55 @@
+import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
+
 import 'package:http/http.dart' as http;
+
 import '../../core/api_config.dart';
+import '../../core/api_exception.dart';
 import '../models/content_model.dart';
 
 class ContentRepository {
-  /// Mengambil daftar konten dari API.
+  static const Duration _requestTimeout = Duration(seconds: 15);
+
   Future<List<ContentModel>> getContents() async {
     try {
-      final response = await http.get(
-        Uri.parse('${ApiConfig.baseUrl}/content'),
-        headers: ApiConfig.headers, // Menggunakan header dari config
-      );
+      final response = await http
+          .get(
+            Uri.parse('${ApiConfig.baseUrl}/content'),
+            headers: ApiConfig.headers,
+          )
+          .timeout(_requestTimeout);
 
       if (response.statusCode == 200) {
-        final json = jsonDecode(response.body);
-        final List dataList = json['data'];
-        
-        // Mapping List JSON ke List<ContentModel>
-        return dataList.map((e) => ContentModel.fromJson(e)).toList();
-      } else {
-        throw Exception('Gagal memuat konten: ${response.statusCode}');
+        final dynamic decoded;
+        try {
+          decoded = jsonDecode(response.body);
+        } on FormatException {
+          throw const ApiException(
+              'Format data panduan dari server tidak valid.');
+        }
+
+        if (decoded is! Map<String, dynamic> || decoded['data'] is! List) {
+          throw const ApiException('Struktur data panduan tidak sesuai.');
+        }
+
+        final dataList = decoded['data'] as List;
+        return dataList
+            .whereType<Map<String, dynamic>>()
+            .map(ContentModel.fromJson)
+            .toList();
       }
+
+      throw ApiException('Gagal memuat panduan (HTTP ${response.statusCode}).');
+    } on ApiException {
+      rethrow;
+    } on TimeoutException {
+      throw const ApiException('Server tidak merespons. Periksa koneksi Anda.');
+    } on SocketException {
+      throw const ApiException(
+          'Tidak ada koneksi internet untuk memuat panduan.');
     } catch (e) {
-      throw Exception("Content Error: $e");
+      throw ApiException('Gagal memuat panduan: $e');
     }
   }
 }

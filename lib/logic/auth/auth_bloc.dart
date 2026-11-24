@@ -1,77 +1,140 @@
+import 'package:equatable/equatable.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:equatable/equatable.dart';
+
+import '../../data/models/user_model.dart';
 import '../../data/repositories/auth_repository.dart';
 
-// Menghubungkan file part agar bisa saling akses private variable/class
 part 'auth_event.dart';
 part 'auth_state.dart';
 
+typedef FcmTopicAction = Future<void> Function(String topic);
+
 class AuthBloc extends Bloc<AuthEvent, AuthState> {
   final AuthRepository authRepository;
+  final FcmTopicAction _subscribeToTopic;
+  final FcmTopicAction _unsubscribeFromTopic;
 
-  AuthBloc({required this.authRepository}) : super(AuthInitial()) {
-    
-    // --- HANDLER: LOGIN ---
-    on<LoginRequested>((event, emit) async {
-      emit(AuthLoading()); // Ubah UI jadi loading
-      try {
-        // Panggil Repository dengan timeout 10 detik
-        final result = await authRepository.login(event.username, event.password).timeout(
-          const Duration(seconds: 10),
-          onTimeout: () => throw Exception("Server tidak merespons. Cek koneksi Anda."),
-        );
-        
-        final String role = result['data']['user']['role'] ?? 'user';
-        // Emit Sukses dengan membawa Role user
-        emit(AuthSuccess("Login Berhasil!", role: role));
-      } catch (e) {
+  AuthBloc({
+    required this.authRepository,
+    FcmTopicAction? subscribeToTopic,
+    FcmTopicAction? unsubscribeFromTopic,
+  })  : _subscribeToTopic =
+            subscribeToTopic ?? FirebaseMessaging.instance.subscribeToTopic,
+        _unsubscribeFromTopic = unsubscribeFromTopic ??
+            FirebaseMessaging.instance.unsubscribeFromTopic,
+        super(AuthInitial()) {
+    on<LoginRequested>(_onLoginRequested);
+    on<RegisterRequested>(_onRegisterRequested);
+    on<CheckAuthStatus>(_onCheckAuthStatus);
+    on<ProfileRefreshRequested>(_onProfileRefreshRequested);
+    on<LogoutRequested>(_onLogoutRequested);
+  }
+
+  Future<void> _onLoginRequested(
+    LoginRequested event,
+    Emitter<AuthState> emit,
+  ) async {
+    emit(AuthLoading());
+    try {
+      final user = await authRepository.login(
+        event.username.trim(),
+        event.password,
+      );
+      await _syncFcmTopic(user);
+      emit(AuthSuccess('Login Berhasil!', user: user));
+    } catch (e) {
+      emit(AuthFailure(e.toString()));
+    }
+  }
+
+  Future<void> _onRegisterRequested(
+    RegisterRequested event,
+    Emitter<AuthState> emit,
+  ) async {
+    emit(AuthLoading());
+    try {
+      await authRepository.register(
+        event.name.trim(),
+        event.username.trim(),
+        event.password,
+      );
+      emit(const RegisterSuccess('Registrasi Berhasil, Silakan Login'));
+    } catch (e) {
+      emit(AuthFailure(e.toString()));
+    }
+  }
+
+  Future<void> _onCheckAuthStatus(
+    CheckAuthStatus event,
+    Emitter<AuthState> emit,
+  ) async {
+    try {
+      final hasToken = await authRepository.hasToken();
+      if (!hasToken) {
+        emit(AuthUnauthenticated());
+        return;
+      }
+
+      final user = await authRepository.getProfile().timeout(
+            const Duration(seconds: 8),
+          );
+      await _syncFcmTopic(user);
+      emit(AuthSuccess('Selamat Datang Kembali', user: user));
+    } catch (e) {
+      debugPrint('Auto-login error: $e');
+      emit(AuthUnauthenticated());
+    }
+  }
+
+  Future<void> _onProfileRefreshRequested(
+    ProfileRefreshRequested event,
+    Emitter<AuthState> emit,
+  ) async {
+    try {
+      final user = await authRepository.getProfile();
+      await _syncFcmTopic(user);
+      emit(AuthSuccess('Profil diperbarui', user: user));
+    } catch (e) {
+      debugPrint('Refresh profile error: $e');
+      if (state is! AuthSuccess) {
         emit(AuthFailure(e.toString()));
       }
-    });
+    }
+  }
 
-    // --- HANDLER: REGISTER ---
-    on<RegisterRequested>((event, emit) async {
-      emit(AuthLoading());
-      try {
-        await authRepository.register(event.name, event.username, event.password).timeout(
-          const Duration(seconds: 10),
-          onTimeout: () => throw Exception("Gagal mendaftar. Silakan coba lagi."),
-        );
-        
-        // Emit RegisterSuccess (UI akan arahkan ke Login, bukan Dashboard)
-        emit(const RegisterSuccess("Registrasi Berhasil, Silakan Login"));
-      } catch (e) {
-        emit(AuthFailure(e.toString()));
+  Future<void> _onLogoutRequested(
+    LogoutRequested event,
+    Emitter<AuthState> emit,
+  ) async {
+    final currentState = state;
+    final groupId = currentState is AuthSuccess
+        ? currentState.user.groupId
+        : await authRepository.getGroupId();
+
+    try {
+      await _unsubscribeFromTopic('sos_group_$groupId');
+    } catch (e) {
+      debugPrint('Gagal unsubscribe topik FCM saat logout: $e');
+    }
+
+    await authRepository.logout();
+    emit(AuthUnauthenticated());
+  }
+
+  Future<void> _syncFcmTopic(UserModel user) async {
+    try {
+      if (user.isHost) {
+        await _subscribeToTopic(user.sosTopic);
+        debugPrint('FCM: Host subscribed ke topik ${user.sosTopic}');
+      } else {
+        await _unsubscribeFromTopic(user.sosTopic);
+        debugPrint('FCM: User unsubscribed dari topik ${user.sosTopic}');
       }
-    });
-
-    // --- HANDLER: CEK STATUS (AUTO LOGIN) ---
-    on<CheckAuthStatus>((event, emit) async {
-      try {
-        final hasToken = await authRepository.hasToken();
-        if (hasToken) {
-          // Jika token ada, ambil profil terbaru untuk cek Role & Group ID
-          final profile = await authRepository.getProfile().timeout(
-            const Duration(seconds: 5),
-          ); 
-          final String role = profile['role'] ?? 'user';
-          emit(AuthSuccess("Selamat Datang Kembali", role: role));
-        } else {
-          // Token tidak ada, user harus login manual
-          emit(AuthInitial());
-        }
-      } catch (e) {
-        debugPrint("Auto-login error: $e");
-        // Jika token expired atau error, kembalikan ke Initial (Login Screen)
-        emit(AuthInitial()); 
-      }
-    });
-
-    // --- HANDLER: LOGOUT ---
-    on<LogoutRequested>((event, emit) async {
-      await authRepository.logout();
-      emit(AuthInitial()); // UI akan redirect ke Login Screen
-    });
+    } catch (e) {
+      // FCM subscription failure should not block login or dashboard entry.
+      debugPrint('FCM topic sync error: $e');
+    }
   }
 }

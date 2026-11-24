@@ -18,6 +18,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
   bool _isObscure = true;
 
   @override
+  void dispose() {
+    nameController.dispose();
+    usernameController.dispose();
+    passwordController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: SafeArea(
@@ -31,10 +39,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   backgroundColor: Colors.green,
                 ),
               );
-              Navigator.pop(context); // Ini akan membawa user kembali ke Login Screen
+              Navigator.pop(
+                  context); // Ini akan membawa user kembali ke Login Screen
             } else if (state is AuthFailure) {
               ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text(state.error), backgroundColor: const Color(0xFFA01C1C)),
+                SnackBar(
+                    content: Text(state.error),
+                    backgroundColor: const Color(0xFFA01C1C)),
               );
             }
           },
@@ -56,10 +67,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       const Text(
                         "Register Akun",
                         style: TextStyle(
-                          fontSize: 24, 
-                          fontWeight: FontWeight.bold, 
-                          color: Color(0xFFA01C1C)
-                        ),
+                            fontSize: 24,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFFA01C1C)),
                       ),
                       const SizedBox(height: 10),
                       const Text(
@@ -67,7 +77,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         style: TextStyle(color: Colors.grey),
                       ),
                       const SizedBox(height: 30),
-                      
+
                       // Input Nama
                       TextFormField(
                         controller: nameController,
@@ -77,7 +87,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           prefixIcon: Icon(Icons.badge),
                         ),
                         validator: (value) {
-                          if (value == null || value.isEmpty) return 'Nama tidak boleh kosong';
+                          if (value == null || value.trim().isEmpty) {
+                            return 'Nama tidak boleh kosong';
+                          }
                           return null;
                         },
                       ),
@@ -92,8 +104,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           prefixIcon: Icon(Icons.person),
                         ),
                         validator: (value) {
-                          if (value == null || value.isEmpty) return 'Username tidak boleh kosong';
-                          if (value.contains(' ')) return 'Username tidak boleh ada spasi';
+                          if (value == null || value.trim().isEmpty) {
+                            return 'Username tidak boleh kosong';
+                          }
+                          if (value.trim().contains(' ')) {
+                            return 'Username tidak boleh ada spasi';
+                          }
                           return null;
                         },
                       ),
@@ -108,7 +124,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           prefixIcon: const Icon(Icons.lock),
                           suffixIcon: IconButton(
                             icon: Icon(
-                              _isObscure ? Icons.visibility : Icons.visibility_off,
+                              _isObscure
+                                  ? Icons.visibility
+                                  : Icons.visibility_off,
                               color: Colors.grey,
                             ),
                             onPressed: () {
@@ -120,8 +138,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         ),
                         obscureText: _isObscure,
                         validator: (value) {
-                          if (value == null || value.isEmpty) return 'Password tidak boleh kosong';
-                          if (value.length < 6) return 'Password minimal 6 karakter';
+                          if (value == null || value.isEmpty) {
+                            return 'Password tidak boleh kosong';
+                          }
+                          if (value.length < 6) {
+                            return 'Password minimal 6 karakter';
+                          }
                           return null;
                         },
                       ),
@@ -132,24 +154,27 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         width: double.infinity,
                         height: 50,
                         child: ElevatedButton(
-                          style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFA01C1C)),
+                          style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFFA01C1C)),
                           // Disable tombol saat loading
-                          onPressed: state is AuthLoading 
-                            ? null 
-                            : () {
-                              if (_formKey.currentState!.validate()) {
-                                context.read<AuthBloc>().add(
-                                      RegisterRequested(
-                                        nameController.text,
-                                        usernameController.text,
-                                        passwordController.text,
-                                      ),
-                                    );
-                              }
-                            },
+                          onPressed: state is AuthLoading
+                              ? null
+                              : () {
+                                  if (_formKey.currentState!.validate()) {
+                                    context.read<AuthBloc>().add(
+                                          RegisterRequested(
+                                            nameController.text.trim(),
+                                            usernameController.text.trim(),
+                                            passwordController.text,
+                                          ),
+                                        );
+                                  }
+                                },
                           child: state is AuthLoading
-                              ? const CircularProgressIndicator(color: Colors.white)
-                              : const Text("REGISTER", style: TextStyle(color: Colors.white)),
+                              ? const CircularProgressIndicator(
+                                  color: Colors.white)
+                              : const Text("REGISTER",
+                                  style: TextStyle(color: Colors.white)),
                         ),
                       ),
 

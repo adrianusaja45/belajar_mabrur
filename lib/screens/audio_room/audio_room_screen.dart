@@ -9,8 +9,8 @@ import 'package:zego_uikit_prebuilt_live_audio_room/zego_uikit_prebuilt_live_aud
 import 'package:belajar_mabrur/main.dart';
 
 import '../../core/constants.dart';
-
 import '../../meet/conference_config.dart';
+import 'audio_room_controller.dart';
 
 class AudioRoomScreen extends StatefulWidget {
   final String roomID;
@@ -40,6 +40,14 @@ class _AudioRoomScreenState extends State<AudioRoomScreen> {
   @override
   void initState() {
     super.initState();
+
+    AudioRoomController.instance.setSession(
+      roomID: widget.roomID,
+      userID: widget.userID,
+      displayName: widget.displayName,
+      hostUserID: widget.hostUserID,
+      isHost: widget.isHost,
+    );
 
     if (widget.isHost) {
       _markRoomAsCreated();
@@ -153,8 +161,12 @@ class _AudioRoomScreenState extends State<AudioRoomScreen> {
 
   @override
   void dispose() {
-    if (widget.isHost) {
-      _clearRoomFlag();
+    // Keep room state intact while minimized into PiP overlay.
+    if (!ZegoUIKitPrebuiltLiveAudioRoomController().minimize.isMinimizing) {
+      if (widget.isHost) {
+        _clearRoomFlag();
+      }
+      AudioRoomController.instance.clearSession();
     }
 
     super.dispose();
@@ -194,6 +206,17 @@ class _AudioRoomScreenState extends State<AudioRoomScreen> {
               } else {
                 return await _userLeaveDialog(validContext);
               }
+            },
+            onEnded: (event, defaultAction) {
+              if (widget.isHost) {
+                _clearRoomFlag();
+              }
+              AudioRoomController.instance.clearSession();
+              // Zego calls minimize.hide() before defaultAction, so skip pop when leaving from PiP.
+              if (event.isFromMinimizing) {
+                return;
+              }
+              defaultAction.call();
             },
             user: ZegoLiveAudioRoomUserEvents(
               onLeave: (user) {

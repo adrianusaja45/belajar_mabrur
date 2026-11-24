@@ -49,13 +49,13 @@ class _SplashScreenState extends State<SplashScreen> {
       listener: (context, state) {
         if (state is AuthSuccess) {
           Navigator.pushReplacement(
-            context, 
-            MaterialPageRoute(builder: (_) => const DashboardScreen())
+            context,
+            MaterialPageRoute(builder: (_) => const DashboardScreen()),
           );
-        } else if (state is AuthInitial || state is AuthFailure) {
+        } else if (state is AuthUnauthenticated || state is AuthFailure) {
           Navigator.pushReplacement(
-            context, 
-            MaterialPageRoute(builder: (_) => const LoginScreen())
+            context,
+            MaterialPageRoute(builder: (_) => const LoginScreen()),
           );
         }
       },
@@ -67,9 +67,9 @@ class _SplashScreenState extends State<SplashScreen> {
             children: [
               // Tambahkan error handling jika asset tidak ditemukan
               Image.asset(
-                'assets/logo_splashcreen.png', 
+                'assets/logo_splashcreen.png',
                 width: 150,
-                errorBuilder: (context, error, stackTrace) => 
+                errorBuilder: (context, error, stackTrace) =>
                     const Icon(Icons.mosque, size: 100, color: Colors.white),
               ),
               const SizedBox(height: 30),

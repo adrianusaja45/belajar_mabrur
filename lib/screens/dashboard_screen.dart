@@ -1,18 +1,15 @@
 import 'package:belajar_mabrur/screens/home_tab.dart';
-import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-// IMPORT PATH DIPERBAIKI SESUAI STRUKTUR BARU
-import '../data/repositories/auth_repository.dart';
-import '../logic/dashboard/dashboard_cubit.dart'; // Import State Management
-import '../logic/dashboard/dashboard_state.dart';
-import '../logic/auth/auth_bloc.dart';
 
+import '../logic/auth/auth_bloc.dart';
+import '../logic/dashboard/dashboard_cubit.dart';
+import '../logic/dashboard/dashboard_state.dart';
 import 'account_tab.dart';
 import 'audio_room/audio_room_controller.dart';
 import 'join_tab.dart';
-import 'map_sos_tab.dart';
 import 'login_screen.dart';
+import 'map_sos_tab.dart';
 
 class DashboardScreen extends StatelessWidget {
   const DashboardScreen({super.key});
@@ -21,37 +18,17 @@ class DashboardScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return BlocListener<AuthBloc, AuthState>(
       listener: (context, state) async {
-        // 1. Redirect jika Logout
-        if (state is AuthInitial) {
-          // CLEANUP: End Audio Room session jika ada
-          if (AudioRoomController.instance.roomID != null) {
-            AudioRoomController.instance.leaveRoom();
+        if (state is AuthUnauthenticated || state is AuthInitial) {
+          if (AudioRoomController.instance.isRoomActive) {
+            await AudioRoomController.instance.leaveRoom(context);
           }
 
+          if (!context.mounted) return;
           Navigator.pushAndRemoveUntil(
             context,
             MaterialPageRoute(builder: (context) => const LoginScreen()),
             (route) => false,
           );
-        }
-
-        // 2. Logic Subscribe FCM Dinamis
-        if (state is AuthSuccess) {
-          final authRepo = context.read<AuthRepository>();
-          String groupId = await authRepo.getGroupId();
-          String groupTopic = "sos_group_$groupId";
-
-          // Subscribe/unsubscribe by role:
-          // - Host: subscribe agar bisa terima SOS real-time via FCM
-          // - User: unsubscribe agar tidak menerima notif SOS yang dikirimnya sendiri
-          // Untuk ganti role di 1 device: data SOS tetap ada di SharedPreferences
-          if (state.role == 'host') {
-            await FirebaseMessaging.instance.subscribeToTopic(groupTopic);
-            debugPrint("Dashboard: Host Subscribed ke topik: $groupTopic");
-          } else {
-            await FirebaseMessaging.instance.unsubscribeFromTopic(groupTopic);
-            debugPrint("Dashboard: User Unsubscribed dari topik: $groupTopic");
-          }
         }
       },
       child: Scaffold(
