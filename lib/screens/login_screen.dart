@@ -41,7 +41,11 @@ class _LoginScreenState extends State<LoginScreen> {
 
               if (state.role == 'host') {
                 await FirebaseMessaging.instance.subscribeToTopic(topicName);
-                debugPrint("HOST: Subscribed ke topik $topicName");
+                final token = await FirebaseMessaging.instance.getToken();
+                debugPrint(
+                  "HOST: Subscribed ke topik $topicName; "
+                  "FCM token tersedia: ${token != null}",
+                );
               } else {
                 await FirebaseMessaging.instance.unsubscribeFromTopic(topicName);
                 debugPrint("USER: Unsubscribed dari topik $topicName");

@@ -168,6 +168,11 @@ class AuthRepository {
 
   Future<void> logout() async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.clear();
+    // Jangan hapus riwayat SOS saat logout (biar tetap bisa dilihat host)
+    await prefs.remove('auth_token');
+    await prefs.remove('user_role');
+    await prefs.remove('saved_user_id');
+    await prefs.remove('user_group_id');
+    // sos_history_list TIDAK dihapus
   }
 }

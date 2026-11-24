@@ -29,6 +29,7 @@ dependencies:
   # --- FIREBASE ---
   firebase_core: ^2.27.0
   firebase_messaging: ^14.7.10
+  cloud_firestore: ^4.15.8
   
   # Notifications
   flutter_local_notifications: ^19.5.0
@@ -41,7 +42,7 @@ dependencies:
   google_maps_flutter: ^2.5.3
   google_maps_flutter_platform_interface: ^2.4.0
   google_maps_flutter_android: ^2.4.0
-  
+
   # --- LOKASI ---
   geolocator: ^10.1.0
   uuid: ^4.0.0

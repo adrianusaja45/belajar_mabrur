@@ -3,14 +3,14 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 // IMPORT PATH DIPERBAIKI SESUAI STRUKTUR BARU
-import '../data/repositories/auth_repository.dart'; 
+import '../data/repositories/auth_repository.dart';
 import '../logic/dashboard/dashboard_cubit.dart'; // Import State Management
 import '../logic/dashboard/dashboard_state.dart';
 import '../logic/auth/auth_bloc.dart';
 
 import 'account_tab.dart';
 import 'audio_room/audio_room_controller.dart';
-import 'join_tab.dart'; 
+import 'join_tab.dart';
 import 'map_sos_tab.dart';
 import 'login_screen.dart';
 
@@ -21,7 +21,6 @@ class DashboardScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return BlocListener<AuthBloc, AuthState>(
       listener: (context, state) async {
-        
         // 1. Redirect jika Logout
         if (state is AuthInitial) {
           // CLEANUP: End Audio Room session jika ada
@@ -42,6 +41,10 @@ class DashboardScreen extends StatelessWidget {
           String groupId = await authRepo.getGroupId();
           String groupTopic = "sos_group_$groupId";
 
+          // Subscribe/unsubscribe by role:
+          // - Host: subscribe agar bisa terima SOS real-time via FCM
+          // - User: unsubscribe agar tidak menerima notif SOS yang dikirimnya sendiri
+          // Untuk ganti role di 1 device: data SOS tetap ada di SharedPreferences
           if (state.role == 'host') {
             await FirebaseMessaging.instance.subscribeToTopic(groupTopic);
             debugPrint("Dashboard: Host Subscribed ke topik: $groupTopic");
@@ -53,23 +56,24 @@ class DashboardScreen extends StatelessWidget {
       },
       child: Scaffold(
         body: BlocBuilder<DashboardCubit, DashboardState>(
-          builder:  (context, state) {
+          builder: (context, state) {
             return IndexedStack(
               index: state.tabIndex,
               children: [
-                const HomeTab(),    
-                MapSosTab(),  
-                const JoinTab(),    
-                const AccountTab(), 
+                const HomeTab(),
+                MapSosTab(),
+                const JoinTab(),
+                const AccountTab(),
               ],
             );
           },
         ),
         bottomNavigationBar: BlocBuilder<DashboardCubit, DashboardState>(
-          builder:  (context, state) {
+          builder: (context, state) {
             return Container(
               decoration: const BoxDecoration(
-                border:  Border(top: BorderSide(color: Colors.black12, width: 0.5)),
+                border:
+                    Border(top: BorderSide(color: Colors.black12, width: 0.5)),
               ),
               child: BottomNavigationBar(
                 currentIndex: state.tabIndex,
@@ -82,10 +86,14 @@ class DashboardScreen extends StatelessWidget {
                 unselectedItemColor: Colors.grey,
                 showUnselectedLabels: true,
                 items: const [
-                  BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
-                  BottomNavigationBarItem(icon: Icon(Icons.map_outlined), label: 'SOS Map'),
-                  BottomNavigationBarItem(icon: Icon(Icons.video_call), label: 'Meet'),
-                  BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Account'),
+                  BottomNavigationBarItem(
+                      icon: Icon(Icons.home), label: 'Home'),
+                  BottomNavigationBarItem(
+                      icon: Icon(Icons.map_outlined), label: 'SOS Map'),
+                  BottomNavigationBarItem(
+                      icon: Icon(Icons.video_call), label: 'Meet'),
+                  BottomNavigationBarItem(
+                      icon: Icon(Icons.person), label: 'Account'),
                 ],
               ),
             );

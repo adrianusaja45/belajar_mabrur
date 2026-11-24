@@ -61,8 +61,8 @@ class ConferenceConfig {
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            AppConstants.primaryColor.withOpacity(0.1),
-            AppConstants.primaryColor.withOpacity(0.05),
+            AppConstants.primaryColor.withValues(alpha: 0.1),
+            AppConstants.primaryColor.withValues(alpha: 0.05),
           ],
         ),
       ),
@@ -89,7 +89,7 @@ class ConferenceConfig {
           border: Border.all(color: Colors.grey.shade300, width: 1),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.05),
+              color: Colors.black.withValues(alpha: 0.05),
               blurRadius: 4,
               offset: const Offset(0, 2),
             ),
@@ -115,7 +115,7 @@ class ConferenceConfig {
           children: [
             CircleAvatar(
               radius: avatarRadius,
-              backgroundColor: AppConstants.primaryColor.withOpacity(0.15),
+              backgroundColor: AppConstants.primaryColor.withValues(alpha: 0.15),
               child: Text(
                 user.name.isNotEmpty ? user.name[0].toUpperCase() : "?",
                 style: TextStyle(
@@ -138,7 +138,7 @@ class ConferenceConfig {
                     border: Border.all(color: Colors.white, width: 2),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withOpacity(0.2),
+                        color: Colors.black.withValues(alpha: 0.2),
                         blurRadius: 2,
                         offset: const Offset(0, 1),
                       ),
