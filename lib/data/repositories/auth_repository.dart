@@ -63,7 +63,7 @@ class AuthRepository {
     }
 
     throw ApiException(
-      _extractMessage(data, fallback: 'Username atau password salah.'),
+      _extractMessage(data, fallback: 'Nama pengguna atau kata sandi salah.'),
     );
   }
 
@@ -171,9 +171,9 @@ class AuthRepository {
           "new_password": newPassword,
         }),
       ),
-      timeoutMessage: 'Koneksi timeout saat mengubah password.',
+      timeoutMessage: 'Koneksi timeout saat mengubah kata sandi.',
       offlineMessage: 'Periksa koneksi internet Anda.',
-      fallbackMessage: 'Gagal mengubah password. Silakan coba lagi.',
+      fallbackMessage: 'Gagal mengubah kata sandi. Silakan coba lagi.',
     );
 
     if (response.statusCode == 200) {
@@ -182,7 +182,7 @@ class AuthRepository {
 
     final data = _decodeJsonObject(response.body);
     throw ApiException(
-      _extractMessage(data, fallback: 'Gagal mengubah password.'),
+      _extractMessage(data, fallback: 'Gagal mengubah kata sandi.'),
     );
   }
 
@@ -277,7 +277,8 @@ class AuthRepository {
   Future<String> _requireToken() async {
     final token = await _readToken();
     if (token == null || token.isEmpty) {
-      throw const ApiException('Sesi habis, silakan login ulang.');
+      throw const ApiException(
+          'Sesi Anda telah berakhir. Silakan masuk kembali.');
     }
     return token;
   }

@@ -43,7 +43,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
         event.password,
       );
       await _syncFcmTopic(user);
-      emit(AuthSuccess('Login Berhasil!', user: user));
+      emit(AuthSuccess('Berhasil masuk.', user: user));
     } catch (e) {
       emit(AuthFailure(e.toString()));
     }
@@ -60,7 +60,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
         event.username.trim(),
         event.password,
       );
-      emit(const RegisterSuccess('Registrasi Berhasil, Silakan Login'));
+      emit(const RegisterSuccess('Pendaftaran berhasil. Silakan masuk.'));
     } catch (e) {
       emit(AuthFailure(e.toString()));
     }
@@ -81,7 +81,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
             const Duration(seconds: 8),
           );
       await _syncFcmTopic(user);
-      emit(AuthSuccess('Selamat Datang Kembali', user: user));
+      emit(AuthSuccess('Selamat datang kembali.', user: user));
     } catch (e) {
       debugPrint('Auto-login error: $e');
       // Keep cached session on network failure; HTTP 401 already cleared token.
@@ -107,7 +107,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     try {
       final user = await authRepository.getProfile();
       await _syncFcmTopic(user);
-      emit(AuthSuccess('Profil diperbarui', user: user));
+      emit(AuthSuccess('Profil berhasil diperbarui.', user: user));
     } catch (e) {
       debugPrint('Refresh profile error: $e');
       if (state is! AuthSuccess) {

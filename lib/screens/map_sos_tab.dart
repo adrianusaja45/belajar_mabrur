@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../core/api_exception.dart';
 import '../core/services/location_services.dart';
@@ -30,6 +31,7 @@ class MapSosTabState extends State<MapSosTab> {
   final Set<Marker> _markers = {};
 
   String _userRole = 'user';
+  String _groupId = 'default';
   bool _isLoading = false;
   bool _isResetting = false;
 
@@ -56,14 +58,15 @@ class MapSosTabState extends State<MapSosTab> {
       groupId = cached?.groupId ?? await authRepository.getGroupId();
     }
 
-    if (mounted) setState(() => _userRole = role);
+    if (mounted) {
+      setState(() {
+        _userRole = role;
+        _groupId = groupId;
+      });
+    }
 
     if (role == 'host' && mounted) {
-      try {
-        await dashboardCubit.loadHistoryFromFirestore(groupId);
-      } catch (e) {
-        debugPrint('Gagal memuat riwayat SOS dari Firestore: $e');
-      }
+      await dashboardCubit.startWatchingSos(groupId);
     }
   }
 
@@ -117,6 +120,74 @@ class MapSosTabState extends State<MapSosTab> {
       }
     } finally {
       if (mounted) setState(() => _isResetting = false);
+    }
+  }
+
+  Future<void> _confirmAndSendSOS() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Kirim Sinyal Darurat?'),
+        content: const Text(
+          'Lokasi GPS Anda saat ini akan dikirim ke pembimbing grup untuk meminta bantuan segera.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text(
+              'Batal',
+              style: TextStyle(color: AppColors.textSecondary),
+            ),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.error,
+              foregroundColor: AppColors.textOnPrimary,
+            ),
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('Ya, Kirim SOS'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true && mounted) {
+      await _sendSOS();
+    }
+  }
+
+  Future<void> _openGoogleMapsRoute(double lat, double lng) async {
+    final uri = Uri.parse(
+      'https://www.google.com/maps/dir/?api=1&destination=$lat,$lng',
+    );
+    try {
+      final launched = await launchUrl(
+        uri,
+        mode: LaunchMode.externalApplication,
+      );
+      if (launched) return;
+      final fallback = await launchUrl(
+        uri,
+        mode: LaunchMode.platformDefault,
+      );
+      if (!fallback && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Tidak dapat membuka Google Maps di perangkat ini.'),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
+    } catch (e) {
+      debugPrint('Gagal membuka rute Google Maps: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Tidak dapat membuka Google Maps di perangkat ini.'),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
     }
   }
 
@@ -187,11 +258,11 @@ class MapSosTabState extends State<MapSosTab> {
       final String feedbackMessage;
       final Color feedbackColor;
       if (fcmError == null && firestoreError == null) {
-        feedbackMessage = "SOS Berhasil Terkirim!";
+        feedbackMessage = "Sinyal SOS berhasil terkirim.";
         feedbackColor = AppColors.success;
       } else if (fcmError == null) {
         feedbackMessage =
-            "SOS terkirim ke pembimbing, namun riwayat cloud gagal tersimpan.";
+            "Sinyal SOS terkirim ke pembimbing, namun riwayat server gagal tersimpan.";
         feedbackColor = AppColors.warning;
       } else {
         feedbackMessage =
@@ -257,7 +328,7 @@ class MapSosTabState extends State<MapSosTab> {
               ),
               const SizedBox(height: AppSpacing.sm),
               Text(
-                "${senderName.toUpperCase()} BUTUH BANTUAN!",
+                "$senderName membutuhkan bantuan",
                 textAlign: TextAlign.center,
                 style: const TextStyle(
                   fontSize: 20,
@@ -267,7 +338,7 @@ class MapSosTabState extends State<MapSosTab> {
               ),
               const SizedBox(height: AppSpacing.sm),
               Text(
-                "Lokasi: $lat, $lng",
+                "Koordinat: ${lat.toStringAsFixed(5)}, ${lng.toStringAsFixed(5)}",
                 style: const TextStyle(color: AppColors.textPrimary),
               ),
               const SizedBox(height: AppSpacing.xxl),
@@ -282,10 +353,27 @@ class MapSosTabState extends State<MapSosTab> {
                 ),
                 onPressed: () {
                   Navigator.pop(context);
-                  _goToSOSLocation(lat, lng, senderName);
+                  _openGoogleMapsRoute(lat, lng);
                 },
                 icon: const Icon(Icons.directions),
-                label: const Text("Tuju Lokasi Darurat"),
+                label: const Text("Buka Rute Google Maps"),
+              ),
+              const SizedBox(height: AppSpacing.md),
+              OutlinedButton.icon(
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: AppColors.primary,
+                  side: const BorderSide(color: AppColors.primary),
+                  minimumSize: const Size(double.infinity, 48),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(AppRadius.md),
+                  ),
+                ),
+                onPressed: () {
+                  Navigator.pop(context);
+                  _goToSOSLocation(lat, lng, senderName);
+                },
+                icon: const Icon(Icons.location_searching),
+                label: const Text("Lihat di Peta"),
               ),
             ],
           ),
@@ -321,8 +409,10 @@ class MapSosTabState extends State<MapSosTab> {
     showDialog(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text("Hapus Riwayat?"),
-        content: const Text("Semua data SOS akan dihapus dari perangkat ini."),
+        title: const Text("Hapus Riwayat SOS?"),
+        content: const Text(
+          "Riwayat SOS di perangkat ini akan disembunyikan. Laporan darurat baru tetap masuk secara otomatis.",
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext),
@@ -337,13 +427,13 @@ class MapSosTabState extends State<MapSosTab> {
               Navigator.pop(dialogContext);
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(
-                  content: Text("Riwayat berhasil dihapus."),
+                  content: Text("Riwayat SOS berhasil dibersihkan."),
                   backgroundColor: AppColors.success,
                 ),
               );
             },
             child: const Text(
-              "HAPUS",
+              "Hapus Riwayat",
               style: TextStyle(
                 color: AppColors.error,
                 fontWeight: FontWeight.bold,
@@ -439,7 +529,7 @@ class MapSosTabState extends State<MapSosTab> {
           borderRadius: BorderRadius.circular(AppRadius.full),
         ),
       ),
-      onPressed: _isLoading ? null : _sendSOS,
+      onPressed: _isLoading ? null : _confirmAndSendSOS,
       icon: _isLoading
           ? const SizedBox(
               width: 24,
@@ -455,7 +545,7 @@ class MapSosTabState extends State<MapSosTab> {
               color: AppColors.textOnPrimary,
             ),
       label: Text(
-        _isLoading ? "MENGIRIM..." : "TEKAN UNTUK SOS",
+        _isLoading ? "Mengirim sinyal SOS..." : "Kirim Sinyal SOS",
         style: const TextStyle(
           color: AppColors.textOnPrimary,
           fontSize: 18,
@@ -481,10 +571,21 @@ class MapSosTabState extends State<MapSosTab> {
           snap: true,
           snapSizes: [collapsedSize, midSize, 0.8],
           builder: (context, scrollController) {
-            return BlocSelector<DashboardCubit, DashboardState,
-                List<Map<String, dynamic>>>(
-              selector: (state) => state.sosHistory,
-              builder: (context, history) {
+            return BlocSelector<
+                DashboardCubit,
+                DashboardState,
+                ({
+                  List<Map<String, dynamic>> history,
+                  bool isLoading,
+                  String? error,
+                })>(
+              selector: (state) => (
+                history: state.sosHistory,
+                isLoading: state.isSosLoading,
+                error: state.sosError,
+              ),
+              builder: (context, sosState) {
+                final history = sosState.history;
                 return Material(
                   color: AppColors.background,
                   elevation: 8,
@@ -538,12 +639,15 @@ class MapSosTabState extends State<MapSosTab> {
                                     ),
                                     onPressed: () =>
                                         _confirmClearHistory(context),
-                                    icon: const Icon(Icons.delete_outline,
-                                        size: 20),
+                                    icon: const Icon(
+                                      Icons.delete_outline,
+                                      size: 20,
+                                    ),
                                     label: const Text(
                                       "Hapus",
                                       style: TextStyle(
-                                          fontWeight: FontWeight.bold),
+                                        fontWeight: FontWeight.bold,
+                                      ),
                                     ),
                                   ),
                               ],
@@ -551,15 +655,115 @@ class MapSosTabState extends State<MapSosTab> {
                           ),
                         ),
                         const Divider(height: 1, color: AppColors.borderSubtle),
+                        if (sosState.error != null)
+                          Container(
+                            margin: const EdgeInsets.fromLTRB(
+                              AppSpacing.lg,
+                              AppSpacing.md,
+                              AppSpacing.lg,
+                              0,
+                            ),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: AppSpacing.md,
+                              vertical: AppSpacing.xs,
+                            ),
+                            decoration: BoxDecoration(
+                              color: AppColors.errorSurface,
+                              borderRadius: BorderRadius.circular(AppRadius.sm),
+                            ),
+                            child: Row(
+                              children: [
+                                const Icon(
+                                  Icons.cloud_off_outlined,
+                                  size: 18,
+                                  color: AppColors.error,
+                                ),
+                                const SizedBox(width: AppSpacing.sm),
+                                Expanded(
+                                  child: Text(
+                                    sosState.error!,
+                                    style: const TextStyle(
+                                      fontSize: 12,
+                                      color: AppColors.error,
+                                    ),
+                                  ),
+                                ),
+                                TextButton(
+                                  onPressed: () => context
+                                      .read<DashboardCubit>()
+                                      .startWatchingSos(_groupId),
+                                  style: TextButton.styleFrom(
+                                    foregroundColor: AppColors.error,
+                                    minimumSize: const Size(44, 44),
+                                    tapTargetSize:
+                                        MaterialTapTargetSize.shrinkWrap,
+                                  ),
+                                  child: const Text(
+                                    'Coba Lagi',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
                         const SizedBox(height: AppSpacing.sm),
-                        if (history.isEmpty)
+                        if (sosState.isLoading && history.isEmpty)
                           const SizedBox(
                             height: 180,
                             child: Center(
-                              child: Text(
-                                "Belum ada laporan masuk.",
-                                style:
-                                    TextStyle(color: AppColors.textSecondary),
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  CircularProgressIndicator(),
+                                  SizedBox(height: AppSpacing.md),
+                                  Text(
+                                    'Memuat riwayat SOS...',
+                                    style: TextStyle(
+                                      color: AppColors.textSecondary,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          )
+                        else if (history.isEmpty)
+                          const SizedBox(
+                            height: 180,
+                            child: Center(
+                              child: Padding(
+                                padding: EdgeInsets.symmetric(
+                                  horizontal: AppSpacing.xxl,
+                                ),
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(
+                                      Icons.shield_outlined,
+                                      size: 40,
+                                      color: AppColors.textSecondary,
+                                    ),
+                                    SizedBox(height: AppSpacing.sm),
+                                    Text(
+                                      "Belum ada sinyal SOS dari grup Anda.",
+                                      textAlign: TextAlign.center,
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.w600,
+                                        color: AppColors.textPrimary,
+                                      ),
+                                    ),
+                                    SizedBox(height: AppSpacing.xs),
+                                    Text(
+                                      "Laporan darurat jamaah akan muncul otomatis di sini.",
+                                      textAlign: TextAlign.center,
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: AppColors.textSecondary,
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               ),
                             ),
                           )
@@ -574,6 +778,13 @@ class MapSosTabState extends State<MapSosTab> {
                               final data = history[index];
                               final sender =
                                   data['name']?.toString() ?? "Seseorang";
+                              final lat =
+                                  double.tryParse(data['lat'].toString());
+                              final lng =
+                                  double.tryParse(data['lng'].toString());
+                              final coordText = (lat != null && lng != null)
+                                  ? '${lat.toStringAsFixed(5)}, ${lng.toStringAsFixed(5)}'
+                                  : '${data['lat']}, ${data['lng']}';
                               return ListTile(
                                 minTileHeight: 56,
                                 leading: const CircleAvatar(
@@ -591,16 +802,23 @@ class MapSosTabState extends State<MapSosTab> {
                                   ),
                                 ),
                                 subtitle: Text(
-                                  "Lokasi: ${data['lat']}, ${data['lng']}",
+                                  "Koordinat: $coordText",
                                   style: const TextStyle(
                                     color: AppColors.textSecondary,
                                   ),
                                 ),
+                                trailing: (lat != null && lng != null)
+                                    ? IconButton(
+                                        tooltip: 'Buka rute Google Maps',
+                                        icon: const Icon(
+                                          Icons.directions,
+                                          color: AppColors.primary,
+                                        ),
+                                        onPressed: () =>
+                                            _openGoogleMapsRoute(lat, lng),
+                                      )
+                                    : null,
                                 onTap: () {
-                                  final lat =
-                                      double.tryParse(data['lat'].toString());
-                                  final lng =
-                                      double.tryParse(data['lng'].toString());
                                   if (lat != null && lng != null) {
                                     _goToSOSLocation(lat, lng, sender);
                                   }

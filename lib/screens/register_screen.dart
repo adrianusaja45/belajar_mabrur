@@ -46,8 +46,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
           listener: (context, state) {
             if (state is RegisterSuccess) {
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text("Registrasi Berhasil! Silakan Login."),
+                SnackBar(
+                  content: Text(state.message),
                   backgroundColor: AppColors.success,
                 ),
               );
@@ -62,6 +62,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
             }
           },
           builder: (context, state) {
+            final isLoading = state is AuthLoading;
+
             return Center(
               child: SingleChildScrollView(
                 padding: const EdgeInsets.all(AppSpacing.xl),
@@ -78,7 +80,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       ),
                       const SizedBox(height: AppSpacing.xl),
                       const Text(
-                        "Register Akun",
+                        "Daftar Akun",
                         style: TextStyle(
                           fontSize: 24,
                           fontWeight: FontWeight.bold,
@@ -87,20 +89,22 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       ),
                       const SizedBox(height: AppSpacing.sm),
                       const Text(
-                        "Lengkapi data diri Anda",
+                        "Lengkapi data berikut untuk membuat akun jamaah.",
+                        textAlign: TextAlign.center,
                         style: TextStyle(color: AppColors.textSecondary),
                       ),
                       const SizedBox(height: 28),
                       TextFormField(
                         controller: nameController,
+                        enabled: !isLoading,
                         textInputAction: TextInputAction.next,
                         decoration: const InputDecoration(
                           labelText: "Nama Lengkap",
-                          prefixIcon: Icon(Icons.badge),
+                          prefixIcon: Icon(Icons.badge_outlined),
                         ),
                         validator: (value) {
                           if (value == null || value.trim().isEmpty) {
-                            return 'Nama tidak boleh kosong';
+                            return 'Nama lengkap tidak boleh kosong';
                           }
                           return null;
                         },
@@ -108,17 +112,18 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       const SizedBox(height: AppSpacing.lg),
                       TextFormField(
                         controller: usernameController,
+                        enabled: !isLoading,
                         textInputAction: TextInputAction.next,
                         decoration: const InputDecoration(
-                          labelText: "Username",
-                          prefixIcon: Icon(Icons.person),
+                          labelText: "Nama Pengguna",
+                          prefixIcon: Icon(Icons.person_outline),
                         ),
                         validator: (value) {
                           if (value == null || value.trim().isEmpty) {
-                            return 'Username tidak boleh kosong';
+                            return 'Nama pengguna tidak boleh kosong';
                           }
                           if (value.trim().contains(' ')) {
-                            return 'Username tidak boleh ada spasi';
+                            return 'Nama pengguna tidak boleh mengandung spasi';
                           }
                           return null;
                         },
@@ -126,15 +131,18 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       const SizedBox(height: AppSpacing.lg),
                       TextFormField(
                         controller: passwordController,
+                        enabled: !isLoading,
                         textInputAction: TextInputAction.done,
-                        onFieldSubmitted: (_) => _submitRegister(),
+                        onFieldSubmitted: (_) {
+                          if (!isLoading) _submitRegister();
+                        },
                         decoration: InputDecoration(
-                          labelText: "Password",
-                          prefixIcon: const Icon(Icons.lock),
+                          labelText: "Kata Sandi",
+                          prefixIcon: const Icon(Icons.lock_outline),
                           suffixIcon: IconButton(
                             tooltip: _isObscure
-                                ? 'Tampilkan password'
-                                : 'Sembunyikan password',
+                                ? 'Tampilkan kata sandi'
+                                : 'Sembunyikan kata sandi',
                             icon: Icon(
                               _isObscure
                                   ? Icons.visibility
@@ -151,10 +159,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         obscureText: _isObscure,
                         validator: (value) {
                           if (value == null || value.isEmpty) {
-                            return 'Password tidak boleh kosong';
+                            return 'Kata sandi tidak boleh kosong';
                           }
                           if (value.length < 6) {
-                            return 'Password minimal 6 karakter';
+                            return 'Kata sandi minimal 6 karakter';
                           }
                           return null;
                         },
@@ -164,19 +172,30 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         width: double.infinity,
                         height: 50,
                         child: ElevatedButton(
-                          onPressed:
-                              state is AuthLoading ? null : _submitRegister,
-                          child: state is AuthLoading
-                              ? const SizedBox(
-                                  width: 22,
-                                  height: 22,
-                                  child: CircularProgressIndicator(
-                                    color: AppColors.textOnPrimary,
-                                    strokeWidth: 2.5,
-                                  ),
+                          onPressed: isLoading ? null : _submitRegister,
+                          child: isLoading
+                              ? const Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    SizedBox(
+                                      width: 20,
+                                      height: 20,
+                                      child: CircularProgressIndicator(
+                                        color: AppColors.textOnPrimary,
+                                        strokeWidth: 2.5,
+                                      ),
+                                    ),
+                                    SizedBox(width: AppSpacing.md),
+                                    Text(
+                                      "Mendaftar...",
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ],
                                 )
                               : const Text(
-                                  "REGISTER",
+                                  "Daftar Akun",
                                   style: TextStyle(fontWeight: FontWeight.bold),
                                 ),
                         ),
@@ -191,9 +210,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             style: TextStyle(color: AppColors.textPrimary),
                           ),
                           TextButton(
-                            onPressed: () => Navigator.pop(context),
+                            onPressed:
+                                isLoading ? null : () => Navigator.pop(context),
                             child: const Text(
-                              "Login",
+                              "Masuk",
                               style: TextStyle(
                                 color: AppColors.primary,
                                 fontWeight: FontWeight.bold,

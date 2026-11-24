@@ -73,8 +73,26 @@ void main() async {
 
     runApp(const MyApp());
   } catch (e) {
-    runApp(MaterialApp(
-        home: Scaffold(body: Center(child: Text("Gagal Startup:  $e")))));
+    debugPrint('Gagal startup aplikasi: $e');
+    runApp(
+      MaterialApp(
+        theme: AppTheme.lightTheme,
+        home: const Scaffold(
+          body: SafeArea(
+            child: Center(
+              child: Padding(
+                padding: EdgeInsets.all(AppSpacing.xxl),
+                child: Text(
+                  'Aplikasi gagal dimulai. Silakan tutup lalu buka kembali.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: AppColors.textPrimary),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }
 
@@ -184,8 +202,8 @@ class _MyAppState extends State<MyApp> {
       if (notification != null) {
         flutterLocalNotificationsPlugin.show(
           notification.hashCode,
-          "SOS DARI $senderName",
-          "$senderName butuh bantuan segera!",
+          "Sinyal SOS dari $senderName",
+          "$senderName membutuhkan bantuan segera.",
           NotificationDetails(
             android: AndroidNotificationDetails(
               channel.id,

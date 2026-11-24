@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../core/api_exception.dart';
 import '../core/theme/app_theme.dart';
 import '../data/repositories/auth_repository.dart';
 import '../logic/auth/auth_bloc.dart';
@@ -25,7 +26,7 @@ class AccountTab extends StatelessWidget {
       context.read<AuthBloc>().add(ProfileRefreshRequested());
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text("Profil berhasil diperbarui"),
+          content: Text("Profil berhasil diperbarui."),
           backgroundColor: AppColors.success,
         ),
       );
@@ -41,7 +42,7 @@ class AccountTab extends StatelessWidget {
     if (changed == true && context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text("Password berhasil diubah"),
+          content: Text("Kata sandi berhasil diubah."),
           backgroundColor: AppColors.success,
         ),
       );
@@ -55,10 +56,17 @@ class AccountTab extends StatelessWidget {
       body: BlocBuilder<AuthBloc, AuthState>(
         builder: (context, state) {
           if (state is AuthLoading) {
-            return Center(
-              child: Semantics(
-                label: 'Memuat data akun',
-                child: const CircularProgressIndicator(),
+            return const Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  CircularProgressIndicator(),
+                  SizedBox(height: AppSpacing.md),
+                  Text(
+                    'Memuat profil akun...',
+                    style: TextStyle(color: AppColors.textSecondary),
+                  ),
+                ],
               ),
             );
           }
@@ -70,10 +78,16 @@ class AccountTab extends StatelessWidget {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
+                    const Icon(
+                      Icons.person_off_outlined,
+                      size: 48,
+                      color: AppColors.textSecondary,
+                    ),
+                    const SizedBox(height: AppSpacing.md),
                     Text(
                       state is AuthFailure
-                          ? "Gagal memuat profil: ${state.error}"
-                          : "Profil belum tersedia.",
+                          ? state.error
+                          : "Data profil belum tersedia. Silakan muat ulang.",
                       textAlign: TextAlign.center,
                       style: const TextStyle(color: AppColors.textPrimary),
                     ),
@@ -152,12 +166,12 @@ class AccountTab extends StatelessWidget {
                               borderRadius: BorderRadius.circular(AppRadius.sm),
                             ),
                             child: Text(
-                              user.role.toUpperCase(),
+                              user.isHost ? "Pembimbing" : "Jamaah",
                               style: TextStyle(
                                 color: user.isHost
                                     ? AppColors.accentGold
                                     : AppColors.badgeNeutral,
-                                fontSize: 11,
+                                fontSize: 12,
                                 fontWeight: FontWeight.bold,
                               ),
                             ),
@@ -175,8 +189,8 @@ class AccountTab extends StatelessWidget {
                     children: [
                       if (user.isHost) ...[
                         _buildMenuTile(
-                          icon: Icons.edit,
-                          title: "Edit Profil",
+                          icon: Icons.edit_outlined,
+                          title: "Ubah Profil",
                           onTap: () => _showEditProfileDialog(
                             context,
                             user.name,
@@ -186,23 +200,24 @@ class AccountTab extends StatelessWidget {
                         const SizedBox(height: AppSpacing.md),
                         _buildMenuTile(
                           icon: Icons.lock_reset,
-                          title: "Ganti Password",
+                          title: "Ubah Kata Sandi",
                           onTap: () => _showChangePasswordDialog(context),
                         ),
                         const SizedBox(height: AppSpacing.md),
                       ],
                       _buildMenuTile(
                         icon: Icons.logout,
-                        title: "Logout",
+                        title: "Keluar Akun",
                         color: AppColors.errorSurface,
                         textColor: AppColors.primary,
                         onTap: () {
                           showDialog(
                             context: context,
                             builder: (dialogContext) => AlertDialog(
-                              title: const Text("Konfirmasi"),
-                              content:
-                                  const Text("Apakah Anda yakin ingin keluar?"),
+                              title: const Text("Keluar dari Akun"),
+                              content: const Text(
+                                "Anda akan keluar dari akun di perangkat ini. Lanjutkan?",
+                              ),
                               actions: [
                                 TextButton(
                                   onPressed: () => Navigator.pop(dialogContext),
@@ -221,7 +236,7 @@ class AccountTab extends StatelessWidget {
                                         .add(LogoutRequested());
                                   },
                                   child: const Text(
-                                    "Ya, Logout",
+                                    "Keluar",
                                     style: TextStyle(
                                       color: AppColors.primary,
                                       fontWeight: FontWeight.bold,
@@ -322,9 +337,12 @@ class _EditProfileDialogState extends State<_EditProfileDialog> {
       Navigator.pop(context, true);
     } catch (e) {
       if (!mounted) return;
+      final message = e is ApiException
+          ? e.message
+          : 'Gagal memperbarui profil. Silakan coba lagi.';
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text("Error: $e"),
+          content: Text(message),
           backgroundColor: AppColors.error,
         ),
       );
@@ -338,7 +356,7 @@ class _EditProfileDialogState extends State<_EditProfileDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: const Text("Edit Profil"),
+      title: const Text("Ubah Profil"),
       content: Form(
         key: _formKey,
         child: Column(
@@ -349,7 +367,7 @@ class _EditProfileDialogState extends State<_EditProfileDialog> {
               decoration: const InputDecoration(labelText: "Nama Lengkap"),
               validator: (value) {
                 if (value == null || value.trim().isEmpty) {
-                  return 'Nama tidak boleh kosong';
+                  return 'Nama lengkap tidak boleh kosong';
                 }
                 return null;
               },
@@ -357,13 +375,13 @@ class _EditProfileDialogState extends State<_EditProfileDialog> {
             const SizedBox(height: AppSpacing.md),
             TextFormField(
               controller: _usernameController,
-              decoration: const InputDecoration(labelText: "Username"),
+              decoration: const InputDecoration(labelText: "Nama Pengguna"),
               validator: (value) {
                 if (value == null || value.trim().isEmpty) {
-                  return 'Username tidak boleh kosong';
+                  return 'Nama pengguna tidak boleh kosong';
                 }
                 if (value.trim().contains(' ')) {
-                  return 'Username tidak boleh ada spasi';
+                  return 'Nama pengguna tidak boleh mengandung spasi';
                 }
                 return null;
               },
@@ -390,7 +408,7 @@ class _EditProfileDialogState extends State<_EditProfileDialog> {
                     strokeWidth: 2,
                   ),
                 )
-              : const Text("SIMPAN"),
+              : const Text("Simpan Perubahan"),
         ),
       ],
     );
@@ -432,9 +450,12 @@ class _ChangePasswordDialogState extends State<_ChangePasswordDialog> {
       Navigator.pop(context, true);
     } catch (e) {
       if (!mounted) return;
+      final message = e is ApiException
+          ? e.message
+          : 'Gagal mengubah kata sandi. Silakan coba lagi.';
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text("Gagal: $e"),
+          content: Text(message),
           backgroundColor: AppColors.error,
         ),
       );
@@ -448,7 +469,7 @@ class _ChangePasswordDialogState extends State<_ChangePasswordDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: const Text("Ganti Password"),
+      title: const Text("Ubah Kata Sandi"),
       content: Form(
         key: _formKey,
         child: Column(
@@ -458,11 +479,11 @@ class _ChangePasswordDialogState extends State<_ChangePasswordDialog> {
               controller: _oldPassController,
               obscureText: _obscureOld,
               decoration: InputDecoration(
-                labelText: "Password Lama",
+                labelText: "Kata Sandi Lama",
                 suffixIcon: IconButton(
                   tooltip: _obscureOld
-                      ? 'Tampilkan password lama'
-                      : 'Sembunyikan password lama',
+                      ? 'Tampilkan kata sandi lama'
+                      : 'Sembunyikan kata sandi lama',
                   icon: Icon(
                     _obscureOld ? Icons.visibility : Icons.visibility_off,
                     color: AppColors.textSecondary,
@@ -472,7 +493,7 @@ class _ChangePasswordDialogState extends State<_ChangePasswordDialog> {
               ),
               validator: (value) {
                 if (value == null || value.isEmpty) {
-                  return 'Password lama wajib diisi';
+                  return 'Kata sandi lama wajib diisi';
                 }
                 return null;
               },
@@ -482,11 +503,11 @@ class _ChangePasswordDialogState extends State<_ChangePasswordDialog> {
               controller: _newPassController,
               obscureText: _obscureNew,
               decoration: InputDecoration(
-                labelText: "Password Baru",
+                labelText: "Kata Sandi Baru",
                 suffixIcon: IconButton(
                   tooltip: _obscureNew
-                      ? 'Tampilkan password baru'
-                      : 'Sembunyikan password baru',
+                      ? 'Tampilkan kata sandi baru'
+                      : 'Sembunyikan kata sandi baru',
                   icon: Icon(
                     _obscureNew ? Icons.visibility : Icons.visibility_off,
                     color: AppColors.textSecondary,
@@ -496,10 +517,10 @@ class _ChangePasswordDialogState extends State<_ChangePasswordDialog> {
               ),
               validator: (value) {
                 if (value == null || value.isEmpty) {
-                  return 'Password baru wajib diisi';
+                  return 'Kata sandi baru wajib diisi';
                 }
                 if (value.length < 6) {
-                  return 'Password minimal 6 karakter';
+                  return 'Kata sandi minimal 6 karakter';
                 }
                 return null;
               },
@@ -526,7 +547,7 @@ class _ChangePasswordDialogState extends State<_ChangePasswordDialog> {
                     strokeWidth: 2,
                   ),
                 )
-              : const Text("UBAH"),
+              : const Text("Simpan Kata Sandi"),
         ),
       ],
     );

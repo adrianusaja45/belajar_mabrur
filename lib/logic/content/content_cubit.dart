@@ -11,20 +11,28 @@ class ContentCubit extends Cubit<ContentState> {
 
   // Cache data asli agar tidak perlu hit API ulang saat filtering
   List<ContentModel> _allContent = [];
+  bool _isFromCache = false;
 
   ContentCubit(this.repository) : super(ContentInitial());
 
   /// Fungsi untuk mengambil data dari Server
-  void fetchContent() async {
+  Future<void> fetchContent() async {
     // Safety check: Jangan emit jika widget sudah didispose
     if (isClosed) return;
 
+    final previous = state;
+    final activeCategory =
+        previous is ContentLoaded ? previous.activeCategory : "All";
+    final searchQuery = previous is ContentLoaded ? previous.searchQuery : "";
+
     emit(ContentLoading());
     try {
-      _allContent = await repository.getContents();
+      final result = await repository.getContents();
+      _allContent = result.items;
+      _isFromCache = result.fromCache;
 
       if (isClosed) return;
-      emit(ContentLoaded(_allContent));
+      filterContent(category: activeCategory, query: searchQuery);
     } catch (e) {
       debugPrint("Content Error: $e");
       final message = e is ApiException
@@ -52,16 +60,26 @@ class ContentCubit extends Cubit<ContentState> {
       currentQuery = query ?? "";
     }
 
+    final normalizedQuery = currentQuery.trim().toLowerCase();
+
     // Logika Filter
     List<ContentModel> filtered = _allContent.where((item) {
       final matchCategory =
           currentCategory == "All" || item.category == currentCategory;
-      final matchSearch =
-          item.name.toLowerCase().contains(currentQuery.toLowerCase());
+      final matchSearch = normalizedQuery.isEmpty ||
+          item.name.toLowerCase().contains(normalizedQuery) ||
+          item.latin.toLowerCase().contains(normalizedQuery) ||
+          item.translateId.toLowerCase().contains(normalizedQuery);
       return matchCategory && matchSearch;
     }).toList();
 
-    emit(ContentLoaded(filtered,
-        activeCategory: currentCategory, searchQuery: currentQuery));
+    emit(
+      ContentLoaded(
+        filtered,
+        activeCategory: currentCategory,
+        searchQuery: currentQuery,
+        isFromCache: _isFromCache,
+      ),
+    );
   }
 }

@@ -59,7 +59,7 @@ class _JoinTabState extends State<JoinTab> {
           backgroundColor: AppColors.background,
           appBar: AppBar(
             title: const Text(
-              "Audio Conference",
+              "Ruang Audio",
               style: TextStyle(
                 color: AppColors.primary,
                 fontWeight: FontWeight.bold,
@@ -73,8 +73,8 @@ class _JoinTabState extends State<JoinTab> {
               child: Column(
                 children: [
                   const Icon(
-                    Icons.mic_external_on,
-                    size: 76,
+                    Icons.headset_mic_outlined,
+                    size: 72,
                     color: AppColors.primary,
                   ),
                   const SizedBox(height: AppSpacing.xxl),
@@ -85,10 +85,10 @@ class _JoinTabState extends State<JoinTab> {
                   TextField(
                     controller: _roomIDController,
                     decoration: const InputDecoration(
-                      labelText: "Masukkan Room ID",
+                      labelText: "ID Ruang",
                       hintText: "Contoh: 112",
                       prefixIcon: Icon(
-                        Icons.meeting_room,
+                        Icons.meeting_room_outlined,
                         color: AppColors.primary,
                       ),
                     ),
@@ -98,7 +98,7 @@ class _JoinTabState extends State<JoinTab> {
                   if (canHost)
                     SwitchListTile(
                       title: const Text(
-                        "Buka sebagai Host?",
+                        "Buka sebagai Pembimbing",
                         style: TextStyle(
                           fontWeight: FontWeight.bold,
                           color: AppColors.textPrimary,
@@ -106,8 +106,8 @@ class _JoinTabState extends State<JoinTab> {
                       ),
                       subtitle: Text(
                         effectiveIsHost
-                            ? "Anda akan membuat room baru"
-                            : "Masuk sebagai peserta",
+                            ? "Anda akan membuka ruang suara baru"
+                            : "Bergabung sebagai jamaah pendengar",
                         style: const TextStyle(color: AppColors.textSecondary),
                       ),
                       value: effectiveIsHost,
@@ -118,7 +118,7 @@ class _JoinTabState extends State<JoinTab> {
                     const Padding(
                       padding: EdgeInsets.symmetric(vertical: AppSpacing.md),
                       child: Text(
-                        "Anda akan bergabung sebagai Peserta",
+                        "Anda akan bergabung sebagai Jamaah",
                         style: TextStyle(
                           color: AppColors.textSecondary,
                           fontStyle: FontStyle.italic,
@@ -156,7 +156,7 @@ class _JoinTabState extends State<JoinTab> {
           const SizedBox(width: AppSpacing.sm),
           Flexible(
             child: Text(
-              userName.isNotEmpty ? userName : "User",
+              userName.isNotEmpty ? userName : "Jamaah",
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(
                 fontWeight: FontWeight.bold,
@@ -175,10 +175,10 @@ class _JoinTabState extends State<JoinTab> {
               borderRadius: BorderRadius.circular(AppRadius.sm),
             ),
             child: Text(
-              userRole.toUpperCase(),
+              isHostRole ? "Pembimbing" : "Jamaah",
               style: const TextStyle(
                 color: AppColors.textOnPrimary,
-                fontSize: 11,
+                fontSize: 12,
                 fontWeight: FontWeight.bold,
               ),
             ),
@@ -207,7 +207,7 @@ class _JoinTabState extends State<JoinTab> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const Text(
-                  "🎙️ Audio Room Zego",
+                  "Bimbingan Suara Langsung",
                   style: TextStyle(
                     fontWeight: FontWeight.bold,
                     color: AppColors.primary,
@@ -216,8 +216,8 @@ class _JoinTabState extends State<JoinTab> {
                 const SizedBox(height: AppSpacing.xs),
                 Text(
                   isHostMode
-                      ? "Sebagai Host, Anda bisa membuat room baru"
-                      : "Sebagai Peserta, Anda bisa langsung join room",
+                      ? "Sebagai Pembimbing, Anda dapat membuka ruang suara baru untuk memandu jamaah."
+                      : "Masukkan ID Ruang dari pembimbing Anda untuk mendengarkan bimbingan suara.",
                   style: const TextStyle(
                     fontSize: 13,
                     color: AppColors.textSecondary,
@@ -245,9 +245,9 @@ class _JoinTabState extends State<JoinTab> {
           userId: userId,
           isHostUser: isHostUser,
         ),
-        child: const Text(
-          "GABUNG AUDIO ROOM",
-          style: TextStyle(fontWeight: FontWeight.bold),
+        child: Text(
+          isHostUser ? "Buka Ruang Audio" : "Gabung Ruang Audio",
+          style: const TextStyle(fontWeight: FontWeight.bold),
         ),
       ),
     );
@@ -262,7 +262,7 @@ class _JoinTabState extends State<JoinTab> {
     if (roomID.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text("Silakan isi Room ID"),
+          content: Text("Masukkan ID Ruang terlebih dahulu."),
           backgroundColor: AppColors.error,
         ),
       );

@@ -24,12 +24,18 @@ class SosRepository {
     });
   }
 
-  Future<List<Map<String, dynamic>>> getReports(String groupId) async {
-    final snapshot = await _reports.where('group_id', isEqualTo: groupId).get();
-    final reports = snapshot.docs.map(_mapReport).toList();
-    reports.sort((a, b) => b['_created_at_millis']
-        .compareTo(a['_created_at_millis']));
-    return reports;
+  Stream<List<Map<String, dynamic>>> watchReports(String groupId) {
+    return _reports
+        .where('group_id', isEqualTo: groupId)
+        .snapshots()
+        .map((snapshot) {
+      final reports = snapshot.docs.map(_mapReport).toList();
+      reports.sort(
+        (a, b) => (b['created_at_millis'] as int)
+            .compareTo(a['created_at_millis'] as int),
+      );
+      return reports;
+    });
   }
 
   Map<String, dynamic> _mapReport(
@@ -40,11 +46,12 @@ class SosRepository {
     final timestamp = createdAt is Timestamp ? createdAt : null;
 
     return {
+      'id': document.id,
       'lat': data['lat'],
       'lng': data['lng'],
       'time': timestamp == null ? '--:--' : _formatTime(timestamp.toDate()),
       'name': data['sender_name'] ?? 'Seseorang',
-      '_created_at_millis': timestamp?.millisecondsSinceEpoch ?? 0,
+      'created_at_millis': timestamp?.millisecondsSinceEpoch ?? 0,
     };
   }
 

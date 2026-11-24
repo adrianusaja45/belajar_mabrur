@@ -64,14 +64,7 @@ class _LoginScreenState extends State<LoginScreen> {
             }
           },
           builder: (context, state) {
-            if (state is AuthLoading) {
-              return Center(
-                child: Semantics(
-                  label: 'Sedang memproses login',
-                  child: const CircularProgressIndicator(),
-                ),
-              );
-            }
+            final isLoading = state is AuthLoading;
 
             return Center(
               child: SingleChildScrollView(
@@ -88,24 +81,32 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                       const SizedBox(height: 28),
                       const Text(
-                        "Silakan Login",
+                        "Masuk ke Belajar Mabrur",
+                        textAlign: TextAlign.center,
                         style: TextStyle(
-                          fontSize: 20,
+                          fontSize: 22,
                           fontWeight: FontWeight.bold,
                           color: AppColors.primary,
                         ),
                       ),
+                      const SizedBox(height: AppSpacing.sm),
+                      const Text(
+                        "Akses panduan doa, ruang audio, dan bantuan SOS grup.",
+                        textAlign: TextAlign.center,
+                        style: TextStyle(color: AppColors.textSecondary),
+                      ),
                       const SizedBox(height: AppSpacing.xl),
                       TextFormField(
                         controller: usernameController,
+                        enabled: !isLoading,
                         textInputAction: TextInputAction.next,
                         decoration: const InputDecoration(
-                          labelText: "Username",
-                          prefixIcon: Icon(Icons.person),
+                          labelText: "Nama Pengguna",
+                          prefixIcon: Icon(Icons.person_outline),
                         ),
                         validator: (value) {
                           if (value == null || value.trim().isEmpty) {
-                            return 'Username tidak boleh kosong';
+                            return 'Nama pengguna tidak boleh kosong';
                           }
                           return null;
                         },
@@ -113,15 +114,18 @@ class _LoginScreenState extends State<LoginScreen> {
                       const SizedBox(height: AppSpacing.lg),
                       TextFormField(
                         controller: passwordController,
+                        enabled: !isLoading,
                         textInputAction: TextInputAction.done,
-                        onFieldSubmitted: (_) => _submitLogin(),
+                        onFieldSubmitted: (_) {
+                          if (!isLoading) _submitLogin();
+                        },
                         decoration: InputDecoration(
-                          labelText: "Password",
-                          prefixIcon: const Icon(Icons.lock),
+                          labelText: "Kata Sandi",
+                          prefixIcon: const Icon(Icons.lock_outline),
                           suffixIcon: IconButton(
                             tooltip: _isObscure
-                                ? 'Tampilkan password'
-                                : 'Sembunyikan password',
+                                ? 'Tampilkan kata sandi'
+                                : 'Sembunyikan kata sandi',
                             icon: Icon(
                               _isObscure
                                   ? Icons.visibility
@@ -135,7 +139,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         obscureText: _isObscure,
                         validator: (value) {
                           if (value == null || value.isEmpty) {
-                            return 'Password tidak boleh kosong';
+                            return 'Kata sandi tidak boleh kosong';
                           }
                           return null;
                         },
@@ -145,11 +149,32 @@ class _LoginScreenState extends State<LoginScreen> {
                         width: double.infinity,
                         height: 50,
                         child: ElevatedButton(
-                          onPressed: _submitLogin,
-                          child: const Text(
-                            "LOGIN",
-                            style: TextStyle(fontWeight: FontWeight.bold),
-                          ),
+                          onPressed: isLoading ? null : _submitLogin,
+                          child: isLoading
+                              ? const Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    SizedBox(
+                                      width: 20,
+                                      height: 20,
+                                      child: CircularProgressIndicator(
+                                        color: AppColors.textOnPrimary,
+                                        strokeWidth: 2.5,
+                                      ),
+                                    ),
+                                    SizedBox(width: AppSpacing.md),
+                                    Text(
+                                      "Memproses...",
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ],
+                                )
+                              : const Text(
+                                  "Masuk",
+                                  style: TextStyle(fontWeight: FontWeight.bold),
+                                ),
                         ),
                       ),
                       const SizedBox(height: AppSpacing.md),
@@ -162,14 +187,17 @@ class _LoginScreenState extends State<LoginScreen> {
                             style: TextStyle(color: AppColors.textPrimary),
                           ),
                           TextButton(
-                            onPressed: () => Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) => const RegisterScreen(),
-                              ),
-                            ),
+                            onPressed: isLoading
+                                ? null
+                                : () => Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (context) =>
+                                            const RegisterScreen(),
+                                      ),
+                                    ),
                             child: const Text(
-                              "Register",
+                              "Daftar Akun",
                               style: TextStyle(
                                 color: AppColors.primary,
                                 fontWeight: FontWeight.bold,

@@ -40,9 +40,9 @@ class _AudioRoomScreenState extends State<AudioRoomScreen> {
       context: context,
       barrierDismissible: false,
       builder: (dialogContext) => AlertDialog(
-        title: const Text("End Room"),
+        title: const Text("Akhiri Ruang Audio"),
         content: const Text(
-          "End room akan mengakhiri sesi untuk semua pengguna. Lanjutkan?",
+          "Mengakhiri ruang akan menutup sesi bimbingan suara untuk semua jamaah. Lanjutkan?",
         ),
         actions: [
           TextButton(
@@ -58,7 +58,7 @@ class _AudioRoomScreenState extends State<AudioRoomScreen> {
               backgroundColor: AppColors.error,
               foregroundColor: AppColors.textOnPrimary,
             ),
-            child: const Text("End Room"),
+            child: const Text("Akhiri Ruang"),
           ),
         ],
       ),
@@ -72,11 +72,13 @@ class _AudioRoomScreenState extends State<AudioRoomScreen> {
       context: context,
       barrierDismissible: false,
       builder: (dialogContext) => AlertDialog(
-        title: const Text("Keluar Room"),
+        title: const Text("Keluar dari Ruang Audio"),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text("Apakah Anda yakin ingin keluar dari room?"),
+            const Text(
+              "Apakah Anda yakin ingin keluar dari sesi bimbingan suara ini?",
+            ),
             const SizedBox(height: AppSpacing.md),
             Container(
               padding: const EdgeInsets.all(AppSpacing.md),
@@ -90,7 +92,7 @@ class _AudioRoomScreenState extends State<AudioRoomScreen> {
                   SizedBox(width: AppSpacing.sm),
                   Expanded(
                     child: Text(
-                      "💡 Gunakan tombol minimize di atas untuk tetap mendengar",
+                      "Gunakan tombol perkecil di bagian atas agar tetap mendengar suara sambil membuka doa atau peta.",
                       style: TextStyle(
                         fontSize: 12,
                         color: AppColors.infoText,
@@ -176,7 +178,8 @@ class _AudioRoomScreenState extends State<AudioRoomScreen> {
 
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(
-                        content: Text("Host telah mengakhiri room."),
+                        content:
+                            Text("Pembimbing telah mengakhiri ruang audio."),
                       ),
                     );
 
@@ -202,9 +205,9 @@ class _AudioRoomScreenState extends State<AudioRoomScreen> {
                   children: [
                     Semantics(
                       button: true,
-                      label: 'Salin Room ID ${widget.roomID}',
+                      label: 'Salin ID Ruang ${widget.roomID}',
                       child: Tooltip(
-                        message: 'Salin Room ID',
+                        message: 'Salin ID Ruang',
                         child: Material(
                           color: Colors.black.withValues(alpha: 0.72),
                           borderRadius: BorderRadius.circular(AppRadius.md),
@@ -216,7 +219,7 @@ class _AudioRoomScreenState extends State<AudioRoomScreen> {
                               );
                               ScaffoldMessenger.of(context).showSnackBar(
                                 const SnackBar(
-                                  content: Text('Room ID disalin!'),
+                                  content: Text('ID Ruang disalin.'),
                                   duration: Duration(seconds: 1),
                                 ),
                               );
@@ -232,7 +235,7 @@ class _AudioRoomScreenState extends State<AudioRoomScreen> {
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
                                     Text(
-                                      'Room ID: ${widget.roomID}',
+                                      'ID Ruang: ${widget.roomID}',
                                       style: const TextStyle(
                                         color: AppColors.textOnPrimary,
                                         fontSize: 13,

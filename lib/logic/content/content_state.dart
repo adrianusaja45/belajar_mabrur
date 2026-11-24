@@ -14,8 +14,14 @@ class ContentLoaded extends ContentState {
   final List<ContentModel> displayList;
   final String activeCategory;
   final String searchQuery;
-  
-  ContentLoaded(this.displayList, {this.activeCategory = "All", this.searchQuery = ""});
+  final bool isFromCache;
+
+  ContentLoaded(
+    this.displayList, {
+    this.activeCategory = "All",
+    this.searchQuery = "",
+    this.isFromCache = false,
+  });
 }
 
 /// Saat gagal memuat data.

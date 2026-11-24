@@ -20,7 +20,8 @@ class DashboardScreen extends StatelessWidget {
     return BlocListener<AuthBloc, AuthState>(
       listener: (context, state) async {
         if (state is AuthUnauthenticated || state is AuthInitial) {
-          if (AudioRoomController.instance.isRoomActive) {
+          await context.read<DashboardCubit>().stopWatchingSos();
+          if (context.mounted && AudioRoomController.instance.isRoomActive) {
             await AudioRoomController.instance.leaveRoom(context);
           }
 
@@ -61,20 +62,24 @@ class DashboardScreen extends StatelessWidget {
                 },
                 items: const [
                   BottomNavigationBarItem(
-                    icon: Icon(Icons.home),
-                    label: 'Home',
+                    icon: Icon(Icons.menu_book_outlined),
+                    activeIcon: Icon(Icons.menu_book),
+                    label: 'Panduan',
                   ),
                   BottomNavigationBarItem(
                     icon: Icon(Icons.map_outlined),
-                    label: 'SOS Map',
+                    activeIcon: Icon(Icons.map),
+                    label: 'Peta SOS',
                   ),
                   BottomNavigationBarItem(
-                    icon: Icon(Icons.video_call),
-                    label: 'Meet',
+                    icon: Icon(Icons.headset_mic_outlined),
+                    activeIcon: Icon(Icons.headset_mic),
+                    label: 'Ruang Audio',
                   ),
                   BottomNavigationBarItem(
-                    icon: Icon(Icons.person),
-                    label: 'Account',
+                    icon: Icon(Icons.person_outline),
+                    activeIcon: Icon(Icons.person),
+                    label: 'Akun',
                   ),
                 ],
               ),

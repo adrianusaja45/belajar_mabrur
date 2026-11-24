@@ -3,6 +3,13 @@
 class DashboardState {
   final int tabIndex;
   final List<Map<String, dynamic>> sosHistory;
-  
-  DashboardState({required this.tabIndex, required this.sosHistory});
+  final bool isSosLoading;
+  final String? sosError;
+
+  const DashboardState({
+    required this.tabIndex,
+    required this.sosHistory,
+    this.isSosLoading = false,
+    this.sosError,
+  });
 }
