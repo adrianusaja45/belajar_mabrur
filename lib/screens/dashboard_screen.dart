@@ -20,7 +20,7 @@ class DashboardScreen extends StatelessWidget {
     return BlocListener<AuthBloc, AuthState>(
       listener: (context, state) async {
         if (state is AuthUnauthenticated || state is AuthInitial) {
-          await context.read<DashboardCubit>().stopWatchingSos();
+          await context.read<DashboardCubit>().resetOnLogout();
           if (context.mounted && AudioRoomController.instance.isRoomActive) {
             await AudioRoomController.instance.leaveRoom(context);
           }
@@ -38,11 +38,11 @@ class DashboardScreen extends StatelessWidget {
           builder: (context, state) {
             return IndexedStack(
               index: state.tabIndex,
-              children: [
-                const RepaintBoundary(child: HomeTab()),
+              children: const [
+                RepaintBoundary(child: HomeTab()),
                 RepaintBoundary(child: MapSosTab()),
-                const RepaintBoundary(child: JoinTab()),
-                const RepaintBoundary(child: AccountTab()),
+                RepaintBoundary(child: JoinTab()),
+                RepaintBoundary(child: AccountTab()),
               ],
             );
           },

@@ -14,10 +14,8 @@ import '../logic/auth/auth_bloc.dart';
 import '../logic/dashboard/dashboard_cubit.dart';
 import '../logic/dashboard/dashboard_state.dart';
 
-final GlobalKey<MapSosTabState> mapSosKey = GlobalKey<MapSosTabState>();
-
 class MapSosTab extends StatefulWidget {
-  MapSosTab({Key? key}) : super(key: key ?? mapSosKey);
+  const MapSosTab({super.key});
 
   @override
   MapSosTabState createState() => MapSosTabState();
@@ -40,6 +38,20 @@ class MapSosTabState extends State<MapSosTab> {
     super.initState();
     _loadUserRole();
     _initPosition();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _consumePendingSos();
+    });
+  }
+
+  void _consumePendingSos() {
+    if (!mounted) return;
+    final pending = context.read<DashboardCubit>().consumePendingSosModal();
+    if (pending == null) return;
+    final lat = double.tryParse(pending['lat']?.toString() ?? '');
+    final lng = double.tryParse(pending['lng']?.toString() ?? '');
+    if (lat != null && lng != null) {
+      showSOSModal(lat, lng, pending['name']?.toString() ?? 'Seseorang');
+    }
   }
 
   Future<void> _loadUserRole() async {
@@ -214,12 +226,15 @@ class MapSosTabState extends State<MapSosTab> {
       }
 
       final String timeStamp = DateTime.now().toString().substring(11, 16);
-      await dashboardCubit.addSosToHistory({
-        'lat': position.latitude,
-        'lng': position.longitude,
-        'time': timeStamp,
-        'name': senderName,
-      });
+      await dashboardCubit.addSosToHistory(
+        {
+          'lat': position.latitude,
+          'lng': position.longitude,
+          'time': timeStamp,
+          'name': senderName,
+        },
+        groupId: groupId,
+      );
 
       // Firestore failure must not block the emergency FCM broadcast.
       Object? firestoreError;
@@ -447,74 +462,80 @@ class MapSosTabState extends State<MapSosTab> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: Stack(
-        children: [
-          RepaintBoundary(
-            child: GoogleMap(
-              initialCameraPosition: const CameraPosition(
-                target: LatLng(-6.175, 106.82),
-                zoom: 12,
+    return BlocListener<DashboardCubit, DashboardState>(
+      listenWhen: (previous, current) =>
+          current.pendingSosModal != null &&
+          current.pendingSosModal != previous.pendingSosModal,
+      listener: (_, __) => _consumePendingSos(),
+      child: Scaffold(
+        body: Stack(
+          children: [
+            RepaintBoundary(
+              child: GoogleMap(
+                initialCameraPosition: const CameraPosition(
+                  target: LatLng(-6.175, 106.82),
+                  zoom: 12,
+                ),
+                markers: _markers,
+                myLocationEnabled: true,
+                myLocationButtonEnabled: false,
+                zoomControlsEnabled: false,
+                buildingsEnabled: false,
+                indoorViewEnabled: false,
+                tiltGesturesEnabled: false,
+                onMapCreated: (c) {
+                  if (!_controller.isCompleted) {
+                    _controller.complete(c);
+                  }
+                },
               ),
-              markers: _markers,
-              myLocationEnabled: true,
-              myLocationButtonEnabled: false,
-              zoomControlsEnabled: false,
-              buildingsEnabled: false,
-              indoorViewEnabled: false,
-              tiltGesturesEnabled: false,
-              onMapCreated: (c) {
-                if (!_controller.isCompleted) {
-                  _controller.complete(c);
-                }
-              },
             ),
-          ),
-          if (_userRole == 'host') _buildHostSosPanel(),
-          if (_userRole != 'host')
-            Positioned(
-              bottom: 0,
-              left: 0,
-              right: 0,
-              child: SafeArea(
-                top: false,
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(
-                    AppSpacing.xl,
-                    0,
-                    AppSpacing.xl,
-                    AppSpacing.xl,
+            if (_userRole == 'host') _buildHostSosPanel(),
+            if (_userRole != 'host')
+              Positioned(
+                bottom: 0,
+                left: 0,
+                right: 0,
+                child: SafeArea(
+                  top: false,
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(
+                      AppSpacing.xl,
+                      0,
+                      AppSpacing.xl,
+                      AppSpacing.xl,
+                    ),
+                    child: _buildUserSosButton(),
                   ),
-                  child: _buildUserSosButton(),
+                ),
+              ),
+            SafeArea(
+              child: Align(
+                alignment: Alignment.topRight,
+                child: Padding(
+                  padding: const EdgeInsets.all(AppSpacing.lg),
+                  child: FloatingActionButton(
+                    heroTag: "btnReset",
+                    tooltip: 'Pusatkan ke lokasi saya',
+                    backgroundColor: AppColors.background,
+                    foregroundColor: AppColors.primary,
+                    onPressed: _isResetting ? null : _resetToMyLocation,
+                    child: _isResetting
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: AppColors.primary,
+                            ),
+                          )
+                        : const Icon(Icons.my_location),
+                  ),
                 ),
               ),
             ),
-          SafeArea(
-            child: Align(
-              alignment: Alignment.topRight,
-              child: Padding(
-                padding: const EdgeInsets.all(AppSpacing.lg),
-                child: FloatingActionButton(
-                  heroTag: "btnReset",
-                  tooltip: 'Pusatkan ke lokasi saya',
-                  backgroundColor: AppColors.background,
-                  foregroundColor: AppColors.primary,
-                  onPressed: _isResetting ? null : _resetToMyLocation,
-                  child: _isResetting
-                      ? const SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: AppColors.primary,
-                          ),
-                        )
-                      : const Icon(Icons.my_location),
-                ),
-              ),
-            ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

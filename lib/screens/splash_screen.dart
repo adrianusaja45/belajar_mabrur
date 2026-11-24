@@ -28,7 +28,6 @@ class _SplashScreenState extends State<SplashScreen> {
       await [
         Permission.location,
         Permission.microphone,
-        Permission.camera,
         Permission.notification,
         Permission.bluetoothConnect,
       ].request();

@@ -15,7 +15,6 @@ import 'data/repositories/content_repository.dart';
 import 'data/repositories/sos_repository.dart';
 import 'logic/auth/auth_bloc.dart';
 import 'logic/dashboard/dashboard_cubit.dart';
-import 'screens/map_sos_tab.dart';
 import 'screens/splash_screen.dart';
 
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
@@ -103,10 +102,20 @@ class MyApp extends StatefulWidget {
 }
 
 class _MyAppState extends State<MyApp> {
+  StreamSubscription<RemoteMessage>? _onMessageSub;
+  StreamSubscription<RemoteMessage>? _onMessageOpenedSub;
+
   @override
   void initState() {
     super.initState();
     _setupFCM();
+  }
+
+  @override
+  void dispose() {
+    _onMessageSub?.cancel();
+    _onMessageOpenedSub?.cancel();
+    super.dispose();
   }
 
   void _setupFCM() {
@@ -119,7 +128,8 @@ class _MyAppState extends State<MyApp> {
         await FirebaseMessaging.instance.getInitialMessage();
     if (initialMessage != null) _handleMessage(initialMessage);
 
-    FirebaseMessaging.onMessageOpenedApp.listen(_handleMessage);
+    _onMessageOpenedSub =
+        FirebaseMessaging.onMessageOpenedApp.listen(_handleMessage);
   }
 
   void _handleMessage(RemoteMessage message) {
@@ -144,21 +154,20 @@ class _MyAppState extends State<MyApp> {
         'name': senderName,
       });
 
-      dashboardCubit.changeTab(1);
-
-      Future.delayed(const Duration(milliseconds: 600), () {
-        if (mapSosKey.currentState != null) {
-          mapSosKey.currentState!.showSOSModal(lat, lng, senderName);
-        }
-      });
+      dashboardCubit.setPendingSosModal(
+        lat: lat,
+        lng: lng,
+        senderName: senderName,
+      );
     }
   }
 
   void _setupForegroundNotificationListener() {
     const androidInit = AndroidInitializationSettings('@mipmap/ic_launcher');
+    const iosInit = DarwinInitializationSettings();
 
     flutterLocalNotificationsPlugin.initialize(
-      const InitializationSettings(android: androidInit),
+      const InitializationSettings(android: androidInit, iOS: iosInit),
       onDidReceiveNotificationResponse: (response) {
         if (response.payload == null) return;
         try {
@@ -179,7 +188,7 @@ class _MyAppState extends State<MyApp> {
       },
     );
 
-    FirebaseMessaging.onMessage.listen((message) {
+    _onMessageSub = FirebaseMessaging.onMessage.listen((message) {
       final RemoteNotification? notification = message.notification;
       final String senderName =
           message.data['sender_name']?.toString() ?? "Seseorang";

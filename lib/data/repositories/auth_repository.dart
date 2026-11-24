@@ -154,6 +154,9 @@ class AuthRepository {
       return;
     }
 
+    if (response.statusCode == 401) {
+      await logout();
+    }
     final data = _decodeJsonObject(response.body);
     throw ApiException(
       _extractMessage(data, fallback: 'Gagal memperbarui profil.'),
@@ -180,6 +183,9 @@ class AuthRepository {
       return;
     }
 
+    if (response.statusCode == 401) {
+      await logout();
+    }
     final data = _decodeJsonObject(response.body);
     throw ApiException(
       _extractMessage(data, fallback: 'Gagal mengubah kata sandi.'),
@@ -218,7 +224,7 @@ class AuthRepository {
       debugPrint('Secure storage delete error: $e');
     }
 
-    // Keep sos_history_list so host retains emergency history on shared devices.
+    // Keep sos_history_* keys so each group retains offline emergency history.
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_tokenKey);
     await prefs.remove('user_role');

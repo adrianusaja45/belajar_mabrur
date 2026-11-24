@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart' show rootBundle;
@@ -6,6 +7,8 @@ import 'package:googleapis_auth/auth_io.dart';
 import '../api_exception.dart';
 
 class NotificationService {
+  static const Duration _requestTimeout = Duration(seconds: 15);
+
   Future<void> sendSOS({
     required String senderName,
     required String groupId,
@@ -21,7 +24,7 @@ class NotificationService {
       final client = await clientViaServiceAccount(
         serviceAccount,
         ['https://www.googleapis.com/auth/firebase.messaging'],
-      );
+      ).timeout(_requestTimeout);
 
       try {
         final notificationData = {
@@ -42,13 +45,15 @@ class NotificationService {
           }
         };
 
-        final response = await client.post(
-          Uri.parse(
-            'https://fcm.googleapis.com/v1/projects/${jsonMap['project_id']}/messages:send',
-          ),
-          headers: {'Content-Type': 'application/json'},
-          body: jsonEncode(notificationData),
-        );
+        final response = await client
+            .post(
+              Uri.parse(
+                'https://fcm.googleapis.com/v1/projects/${jsonMap['project_id']}/messages:send',
+              ),
+              headers: {'Content-Type': 'application/json'},
+              body: jsonEncode(notificationData),
+            )
+            .timeout(_requestTimeout);
 
         if (response.statusCode < 200 || response.statusCode >= 300) {
           debugPrint('FCM HTTP ${response.statusCode}: ${response.body}');
@@ -59,6 +64,10 @@ class NotificationService {
       }
     } on ApiException {
       rethrow;
+    } on TimeoutException {
+      throw const ApiException(
+        'Pengiriman notifikasi darurat timeout. Periksa koneksi Anda.',
+      );
     } catch (e) {
       debugPrint('Gagal mengirim SOS: $e');
       throw const ApiException('Gagal mengirim notifikasi darurat.');

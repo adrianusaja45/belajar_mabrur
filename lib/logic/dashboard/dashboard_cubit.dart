@@ -7,18 +7,17 @@ import '../../data/repositories/sos_repository.dart';
 import 'dashboard_state.dart';
 
 class DashboardCubit extends Cubit<DashboardState> {
-  static const String _historyKey = 'sos_history_list';
-  static const String _clearedBeforeKey = 'sos_cleared_before_millis';
-
   final SosRepository _sosRepository;
   StreamSubscription<List<Map<String, dynamic>>>? _sosSubscription;
+  String _activeGroupId = 'default';
   int _clearedBeforeMillis = 0;
 
   DashboardCubit({SosRepository? sosRepository})
       : _sosRepository = sosRepository ?? SosRepository(),
-        super(const DashboardState(tabIndex: 0, sosHistory: [])) {
-    loadHistoryFromStorage();
-  }
+        super(const DashboardState(tabIndex: 0, sosHistory: []));
+
+  String _historyKey(String groupId) => 'sos_history_$groupId';
+  String _clearedBeforeKey(String groupId) => 'sos_cleared_before_$groupId';
 
   void changeTab(int index) {
     if (isClosed) return;
@@ -28,50 +27,82 @@ class DashboardCubit extends Cubit<DashboardState> {
         sosHistory: state.sosHistory,
         isSosLoading: state.isSosLoading,
         sosError: state.sosError,
+        pendingSosModal: state.pendingSosModal,
       ),
     );
   }
 
-  Future<void> loadHistoryFromStorage() async {
-    final prefs = await SharedPreferences.getInstance();
-    _clearedBeforeMillis = prefs.getInt(_clearedBeforeKey) ?? 0;
+  void setPendingSosModal({
+    required double lat,
+    required double lng,
+    required String senderName,
+  }) {
+    if (isClosed) return;
+    emit(
+      DashboardState(
+        tabIndex: 1,
+        sosHistory: state.sosHistory,
+        isSosLoading: state.isSosLoading,
+        sosError: state.sosError,
+        pendingSosModal: {
+          'lat': lat,
+          'lng': lng,
+          'name': senderName,
+        },
+      ),
+    );
+  }
 
-    final String? historyRaw = prefs.getString(_historyKey);
-    if (historyRaw == null || historyRaw.isEmpty) return;
-
-    try {
-      final decoded = jsonDecode(historyRaw);
-      if (decoded is! List) return;
-      final loadedHistory = decoded
-          .whereType<Map>()
-          .map((item) => Map<String, dynamic>.from(item))
-          .toList();
-      if (isClosed) return;
+  Map<String, dynamic>? consumePendingSosModal() {
+    final pending = state.pendingSosModal;
+    if (pending == null) return null;
+    if (!isClosed) {
       emit(
         DashboardState(
           tabIndex: state.tabIndex,
-          sosHistory: loadedHistory,
+          sosHistory: state.sosHistory,
           isSosLoading: state.isSosLoading,
           sosError: state.sosError,
+          pendingSosModal: null,
         ),
       );
+    }
+    return pending;
+  }
+
+  Future<List<Map<String, dynamic>>> _loadCachedHistory(String groupId) async {
+    final prefs = await SharedPreferences.getInstance();
+    _clearedBeforeMillis = prefs.getInt(_clearedBeforeKey(groupId)) ?? 0;
+
+    final String? historyRaw = prefs.getString(_historyKey(groupId));
+    if (historyRaw == null || historyRaw.isEmpty) return const [];
+
+    try {
+      final decoded = jsonDecode(historyRaw);
+      if (decoded is! List) return const [];
+      return decoded
+          .whereType<Map>()
+          .map((item) => Map<String, dynamic>.from(item))
+          .toList();
     } catch (_) {
       // Ignore corrupt local cache so app startup remains safe.
+      return const [];
     }
   }
 
   Future<void> startWatchingSos(String groupId) async {
     await _sosSubscription?.cancel();
-    final prefs = await SharedPreferences.getInstance();
-    _clearedBeforeMillis = prefs.getInt(_clearedBeforeKey) ?? 0;
+    _activeGroupId = groupId;
+    final cached = await _loadCachedHistory(groupId);
 
     if (isClosed) return;
     emit(
       DashboardState(
         tabIndex: state.tabIndex,
-        sosHistory: state.sosHistory,
-        isSosLoading: state.sosHistory.isEmpty,
+        sosHistory: cached,
+        isSosLoading: cached.isEmpty,
         sosError: null,
+        pendingSosModal: state.pendingSosModal,
       ),
     );
 
@@ -86,7 +117,7 @@ class DashboardCubit extends Cubit<DashboardState> {
         }).toList();
 
         final storage = await SharedPreferences.getInstance();
-        await storage.setString(_historyKey, jsonEncode(visible));
+        await storage.setString(_historyKey(groupId), jsonEncode(visible));
 
         if (isClosed) return;
         emit(
@@ -95,6 +126,7 @@ class DashboardCubit extends Cubit<DashboardState> {
             sosHistory: visible,
             isSosLoading: false,
             sosError: null,
+            pendingSosModal: state.pendingSosModal,
           ),
         );
       },
@@ -108,18 +140,27 @@ class DashboardCubit extends Cubit<DashboardState> {
             isSosLoading: false,
             sosError:
                 'Koneksi riwayat SOS terputus. Menampilkan data terakhir.',
+            pendingSosModal: state.pendingSosModal,
           ),
         );
       },
     );
   }
 
-  Future<void> stopWatchingSos() async {
+  Future<void> resetOnLogout() async {
     await _sosSubscription?.cancel();
     _sosSubscription = null;
+    _activeGroupId = 'default';
+    _clearedBeforeMillis = 0;
+    if (isClosed) return;
+    emit(const DashboardState(tabIndex: 0, sosHistory: []));
   }
 
-  Future<void> addSosToHistory(Map<String, dynamic> data) async {
+  Future<void> addSosToHistory(
+    Map<String, dynamic> data, {
+    String? groupId,
+  }) async {
+    final targetGroup = groupId ?? _activeGroupId;
     final updatedHistory = List<Map<String, dynamic>>.from(state.sosHistory);
     if (updatedHistory.isNotEmpty) {
       final latest = updatedHistory.first;
@@ -132,7 +173,7 @@ class DashboardCubit extends Cubit<DashboardState> {
     updatedHistory.insert(0, data);
 
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_historyKey, jsonEncode(updatedHistory));
+    await prefs.setString(_historyKey(targetGroup), jsonEncode(updatedHistory));
 
     if (isClosed) return;
     emit(
@@ -141,6 +182,7 @@ class DashboardCubit extends Cubit<DashboardState> {
         sosHistory: updatedHistory,
         isSosLoading: false,
         sosError: state.sosError,
+        pendingSosModal: state.pendingSosModal,
       ),
     );
   }
@@ -149,8 +191,8 @@ class DashboardCubit extends Cubit<DashboardState> {
     // shortcut: clear hides reports locally by timestamp, add Firestore resolve status when multi-host sync is needed
     _clearedBeforeMillis = DateTime.now().millisecondsSinceEpoch;
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setInt(_clearedBeforeKey, _clearedBeforeMillis);
-    await prefs.remove(_historyKey);
+    await prefs.setInt(_clearedBeforeKey(_activeGroupId), _clearedBeforeMillis);
+    await prefs.remove(_historyKey(_activeGroupId));
     if (isClosed) return;
     emit(
       DashboardState(
@@ -158,6 +200,7 @@ class DashboardCubit extends Cubit<DashboardState> {
         sosHistory: const [],
         isSosLoading: false,
         sosError: null,
+        pendingSosModal: state.pendingSosModal,
       ),
     );
   }

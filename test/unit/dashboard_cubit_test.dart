@@ -109,4 +109,43 @@ void main() {
     await cubit.close();
     await repo.controller.close();
   });
+
+  test('handles pendingSosModal, resetOnLogout, and per-group cache isolation',
+      () async {
+    final repo = _FakeSosRepository();
+    final cubit = DashboardCubit(sosRepository: repo);
+
+    cubit.setPendingSosModal(lat: 21.4225, lng: 39.8262, senderName: 'Ali');
+    expect(cubit.state.tabIndex, 1);
+    expect(cubit.state.pendingSosModal?['name'], 'Ali');
+
+    final consumed = cubit.consumePendingSosModal();
+    expect(consumed?['name'], 'Ali');
+    expect(cubit.state.pendingSosModal, isNull);
+
+    await cubit.startWatchingSos('grup_a');
+    repo.controller.add([
+      {
+        'id': 'a1',
+        'name': 'Jamaah A',
+        'lat': 21.42,
+        'lng': 39.82,
+        'time': '09:00',
+        'created_at_millis': DateTime.now().millisecondsSinceEpoch,
+      },
+    ]);
+    await Future<void>.delayed(const Duration(milliseconds: 20));
+    expect(cubit.state.sosHistory.length, 1);
+
+    cubit.changeTab(3);
+    await cubit.resetOnLogout();
+    expect(cubit.state.tabIndex, 0);
+    expect(cubit.state.sosHistory, isEmpty);
+
+    await cubit.startWatchingSos('grup_b');
+    expect(cubit.state.sosHistory, isEmpty);
+
+    await cubit.close();
+    await repo.controller.close();
+  });
 }
