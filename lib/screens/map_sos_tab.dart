@@ -8,6 +8,7 @@ import '../core/api_exception.dart';
 import '../core/services/location_services.dart';
 import '../core/services/notification_service.dart';
 import '../core/theme/app_theme.dart';
+import '../data/models/user_model.dart';
 import '../data/repositories/auth_repository.dart';
 import '../data/repositories/sos_repository.dart';
 import '../logic/auth/auth_bloc.dart';
@@ -15,7 +16,14 @@ import '../logic/dashboard/dashboard_cubit.dart';
 import '../logic/dashboard/dashboard_state.dart';
 
 class MapSosTab extends StatefulWidget {
-  const MapSosTab({super.key});
+  final Widget? mapOverride;
+  final bool loadInitialLocation;
+
+  const MapSosTab({
+    super.key,
+    this.mapOverride,
+    this.loadInitialLocation = true,
+  });
 
   @override
   MapSosTabState createState() => MapSosTabState();
@@ -29,15 +37,19 @@ class MapSosTabState extends State<MapSosTab> {
   final Set<Marker> _markers = {};
 
   String _userRole = 'user';
-  String _groupId = 'default';
+  String _groupId = '';
   bool _isLoading = false;
   bool _isResetting = false;
+
+  bool get _hasGroup => UserModel.normalizeGroupId(_groupId).isNotEmpty;
 
   @override
   void initState() {
     super.initState();
     _loadUserRole();
-    _initPosition();
+    if (widget.loadInitialLocation) {
+      _initPosition();
+    }
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _consumePendingSos();
     });
@@ -57,7 +69,6 @@ class MapSosTabState extends State<MapSosTab> {
   Future<void> _loadUserRole() async {
     final authBlocState = context.read<AuthBloc>().state;
     final authRepository = context.read<AuthRepository>();
-    final dashboardCubit = context.read<DashboardCubit>();
 
     String role;
     String groupId;
@@ -70,15 +81,24 @@ class MapSosTabState extends State<MapSosTab> {
       groupId = cached?.groupId ?? await authRepository.getGroupId();
     }
 
+    await _applyUserContext(role, groupId);
+  }
+
+  Future<void> _applyUserContext(String role, String rawGroupId) async {
+    final normalizedGroup = UserModel.normalizeGroupId(rawGroupId);
     if (mounted) {
       setState(() {
         _userRole = role;
-        _groupId = groupId;
+        _groupId = normalizedGroup;
       });
     }
 
-    if (role == 'host' && mounted) {
-      await dashboardCubit.startWatchingSos(groupId);
+    if (!mounted) return;
+    final dashboardCubit = context.read<DashboardCubit>();
+    if (role == 'host' && normalizedGroup.isNotEmpty) {
+      await dashboardCubit.startWatchingSos(normalizedGroup);
+    } else {
+      await dashboardCubit.stopWatchingSos();
     }
   }
 
@@ -218,7 +238,14 @@ class MapSosTabState extends State<MapSosTab> {
           : await authRepository.getCachedUser();
       final String senderName =
           (user != null && user.name.isNotEmpty) ? user.name : "Seseorang";
-      final String groupId = user?.groupId ?? await authRepository.getGroupId();
+      final String groupId = UserModel.normalizeGroupId(
+        user?.groupId ?? await authRepository.getGroupId(),
+      );
+      if (groupId.isEmpty) {
+        throw const ApiException(
+          "Anda belum terdaftar dalam grup. Hubungi pembimbing atau admin.",
+        );
+      }
 
       final position = await _locationService.getCurrentPosition();
       if (position == null) {
@@ -462,33 +489,50 @@ class MapSosTabState extends State<MapSosTab> {
 
   @override
   Widget build(BuildContext context) {
-    return BlocListener<DashboardCubit, DashboardState>(
-      listenWhen: (previous, current) =>
-          current.pendingSosModal != null &&
-          current.pendingSosModal != previous.pendingSosModal,
-      listener: (_, __) => _consumePendingSos(),
+    return MultiBlocListener(
+      listeners: [
+        BlocListener<DashboardCubit, DashboardState>(
+          listenWhen: (previous, current) =>
+              current.pendingSosModal != null &&
+              current.pendingSosModal != previous.pendingSosModal,
+          listener: (_, __) => _consumePendingSos(),
+        ),
+        BlocListener<AuthBloc, AuthState>(
+          listenWhen: (previous, current) =>
+              current is AuthSuccess &&
+              (previous is! AuthSuccess ||
+                  previous.user.role != current.user.role ||
+                  previous.user.groupId != current.user.groupId),
+          listener: (_, state) {
+            if (state is AuthSuccess) {
+              _applyUserContext(state.user.role, state.user.groupId);
+            }
+          },
+        ),
+      ],
       child: Scaffold(
         body: Stack(
           children: [
             RepaintBoundary(
-              child: GoogleMap(
-                initialCameraPosition: const CameraPosition(
-                  target: LatLng(-6.175, 106.82),
-                  zoom: 12,
-                ),
-                markers: _markers,
-                myLocationEnabled: true,
-                myLocationButtonEnabled: false,
-                zoomControlsEnabled: false,
-                buildingsEnabled: false,
-                indoorViewEnabled: false,
-                tiltGesturesEnabled: false,
-                onMapCreated: (c) {
-                  if (!_controller.isCompleted) {
-                    _controller.complete(c);
-                  }
-                },
-              ),
+              child: widget.mapOverride ??
+                  GoogleMap(
+                    initialCameraPosition: const CameraPosition(
+                      target: LatLng(-6.175, 106.82),
+                      zoom: 12,
+                    ),
+                    markers: _markers,
+                    myLocationEnabled: true,
+                    myLocationButtonEnabled: false,
+                    zoomControlsEnabled: false,
+                    buildingsEnabled: false,
+                    indoorViewEnabled: false,
+                    tiltGesturesEnabled: false,
+                    onMapCreated: (c) {
+                      if (!_controller.isCompleted) {
+                        _controller.complete(c);
+                      }
+                    },
+                  ),
             ),
             if (_userRole == 'host') _buildHostSosPanel(),
             if (_userRole != 'host')
@@ -541,38 +585,87 @@ class MapSosTabState extends State<MapSosTab> {
   }
 
   Widget _buildUserSosButton() {
-    return ElevatedButton.icon(
-      style: ElevatedButton.styleFrom(
-        backgroundColor: AppColors.primary,
-        foregroundColor: AppColors.textOnPrimary,
-        minimumSize: const Size(double.infinity, 60),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(AppRadius.full),
-        ),
-      ),
-      onPressed: _isLoading ? null : _confirmAndSendSOS,
-      icon: _isLoading
-          ? const SizedBox(
-              width: 24,
-              height: 24,
-              child: CircularProgressIndicator(
-                color: AppColors.textOnPrimary,
-                strokeWidth: 2.5,
+    final bool canSendSos = _hasGroup;
+    final Color foregroundColor =
+        canSendSos ? AppColors.textOnPrimary : AppColors.textSecondary;
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (!canSendSos) ...[
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(AppSpacing.md),
+            decoration: BoxDecoration(
+              color: AppColors.infoSurface,
+              borderRadius: BorderRadius.circular(AppRadius.sm),
+              border: Border.all(
+                color: AppColors.infoText.withValues(alpha: 0.35),
               ),
-            )
-          : const Icon(
-              Icons.sos,
-              size: 32,
-              color: AppColors.textOnPrimary,
             ),
-      label: Text(
-        _isLoading ? "Mengirim sinyal SOS..." : "Kirim Sinyal SOS",
-        style: const TextStyle(
-          color: AppColors.textOnPrimary,
-          fontSize: 18,
-          fontWeight: FontWeight.bold,
+            child: const Row(
+              children: [
+                Icon(
+                  Icons.info_outline,
+                  size: 20,
+                  color: AppColors.infoText,
+                ),
+                SizedBox(width: AppSpacing.sm),
+                Expanded(
+                  child: Text(
+                    "Anda belum terdaftar dalam grup. Hubungi pembimbing atau admin agar sinyal SOS dapat digunakan.",
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: AppColors.infoText,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: AppSpacing.md),
+        ],
+        ElevatedButton.icon(
+          style: ElevatedButton.styleFrom(
+            backgroundColor: AppColors.primary,
+            foregroundColor: AppColors.textOnPrimary,
+            disabledBackgroundColor:
+                canSendSos ? AppColors.primary : AppColors.surface,
+            disabledForegroundColor: foregroundColor,
+            side: canSendSos
+                ? null
+                : const BorderSide(color: AppColors.borderChip),
+            minimumSize: const Size(double.infinity, 60),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(AppRadius.full),
+            ),
+          ),
+          onPressed: (_isLoading || !canSendSos) ? null : _confirmAndSendSOS,
+          icon: _isLoading
+              ? const SizedBox(
+                  width: 24,
+                  height: 24,
+                  child: CircularProgressIndicator(
+                    color: AppColors.textOnPrimary,
+                    strokeWidth: 2.5,
+                  ),
+                )
+              : Icon(
+                  Icons.sos,
+                  size: 32,
+                  color: foregroundColor,
+                ),
+          label: Text(
+            _isLoading ? "Mengirim sinyal SOS..." : "Kirim Sinyal SOS",
+            style: TextStyle(
+              color: foregroundColor,
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
         ),
-      ),
+      ],
     );
   }
 
@@ -650,7 +743,7 @@ class MapSosTabState extends State<MapSosTab> {
                                     color: AppColors.textPrimary,
                                   ),
                                 ),
-                                if (history.isNotEmpty)
+                                if (_hasGroup && history.isNotEmpty)
                                   TextButton.icon(
                                     style: TextButton.styleFrom(
                                       foregroundColor: AppColors.error,
@@ -676,7 +769,7 @@ class MapSosTabState extends State<MapSosTab> {
                           ),
                         ),
                         const Divider(height: 1, color: AppColors.borderSubtle),
-                        if (sosState.error != null)
+                        if (_hasGroup && sosState.error != null)
                           Container(
                             margin: const EdgeInsets.fromLTRB(
                               AppSpacing.lg,
@@ -730,7 +823,46 @@ class MapSosTabState extends State<MapSosTab> {
                             ),
                           ),
                         const SizedBox(height: AppSpacing.sm),
-                        if (sosState.isLoading && history.isEmpty)
+                        if (!_hasGroup)
+                          const SizedBox(
+                            height: 180,
+                            child: Center(
+                              child: Padding(
+                                padding: EdgeInsets.symmetric(
+                                  horizontal: AppSpacing.xxl,
+                                ),
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(
+                                      Icons.group_off_outlined,
+                                      size: 40,
+                                      color: AppColors.textSecondary,
+                                    ),
+                                    SizedBox(height: AppSpacing.sm),
+                                    Text(
+                                      "Anda belum terdaftar dalam grup.",
+                                      textAlign: TextAlign.center,
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.w600,
+                                        color: AppColors.textPrimary,
+                                      ),
+                                    ),
+                                    SizedBox(height: AppSpacing.xs),
+                                    Text(
+                                      "Hubungi admin untuk menetapkan grup agar riwayat SOS jamaah dapat dipantau.",
+                                      textAlign: TextAlign.center,
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: AppColors.textSecondary,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          )
+                        else if (sosState.isLoading && history.isEmpty)
                           const SizedBox(
                             height: 180,
                             child: Center(

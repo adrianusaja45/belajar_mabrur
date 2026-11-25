@@ -121,14 +121,28 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     Emitter<AuthState> emit,
   ) async {
     final currentState = state;
-    final groupId = currentState is AuthSuccess
-        ? currentState.user.groupId
-        : await authRepository.getGroupId();
+    final groupId = UserModel.normalizeGroupId(
+      currentState is AuthSuccess
+          ? currentState.user.groupId
+          : await authRepository.getGroupId(),
+    );
+    final lastTopic = await authRepository.getLastSubscribedSosTopic();
+    final topicsToUnsubscribe = <String>{
+      if (lastTopic != null) lastTopic,
+      if (groupId.isNotEmpty) 'sos_group_$groupId',
+    };
 
-    try {
-      await _unsubscribeFromTopic('sos_group_$groupId');
-    } catch (e) {
-      debugPrint('Gagal unsubscribe topik FCM saat logout: $e');
+    var unsubscribedAll = true;
+    for (final topic in topicsToUnsubscribe) {
+      try {
+        await _unsubscribeFromTopic(topic);
+      } catch (e) {
+        unsubscribedAll = false;
+        debugPrint('Gagal unsubscribe topik FCM $topic saat logout: $e');
+      }
+    }
+    if (unsubscribedAll) {
+      await authRepository.setLastSubscribedSosTopic(null);
     }
 
     await authRepository.logout();
@@ -136,11 +150,21 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
   }
 
   Future<void> _syncFcmTopic(UserModel user) async {
+    final targetTopic = (user.isHost && user.hasGroup) ? user.sosTopic : null;
+    final lastTopic = await authRepository.getLastSubscribedSosTopic();
+
     try {
-      if (user.isHost) {
-        await _subscribeToTopic(user.sosTopic);
-        debugPrint('FCM: Host subscribed ke topik ${user.sosTopic}');
-      } else {
+      if (lastTopic != null && lastTopic != targetTopic) {
+        await _unsubscribeFromTopic(lastTopic);
+        await authRepository.setLastSubscribedSosTopic(null);
+        debugPrint('FCM: Unsubscribed dari topik lama $lastTopic');
+      }
+
+      if (targetTopic != null) {
+        await _subscribeToTopic(targetTopic);
+        await authRepository.setLastSubscribedSosTopic(targetTopic);
+        debugPrint('FCM: Host subscribed ke topik $targetTopic');
+      } else if (user.hasGroup && user.sosTopic != lastTopic) {
         await _unsubscribeFromTopic(user.sosTopic);
         debugPrint('FCM: User unsubscribed dari topik ${user.sosTopic}');
       }

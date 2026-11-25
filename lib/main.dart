@@ -10,6 +10,7 @@ import 'package:google_maps_flutter_android/google_maps_flutter_android.dart';
 import 'package:google_maps_flutter_platform_interface/google_maps_flutter_platform_interface.dart';
 import 'package:zego_uikit_prebuilt_live_audio_room/zego_uikit_prebuilt_live_audio_room.dart';
 import 'core/theme/app_theme.dart';
+import 'data/models/user_model.dart';
 import 'data/repositories/auth_repository.dart';
 import 'data/repositories/content_repository.dart';
 import 'data/repositories/sos_repository.dart';
@@ -132,7 +133,33 @@ class _MyAppState extends State<MyApp> {
         FirebaseMessaging.onMessageOpenedApp.listen(_handleMessage);
   }
 
-  void _handleMessage(RemoteMessage message) {
+  Future<bool> _shouldAcceptSosPayload(Map<String, dynamic> data) async {
+    final context = navigatorKey.currentContext;
+    if (context == null || !context.mounted) return false;
+
+    final authState = context.read<AuthBloc>().state;
+    UserModel? activeUser;
+    if (authState is AuthSuccess) {
+      activeUser = authState.user;
+    } else if (authState is AuthInitial || authState is AuthLoading) {
+      activeUser = await context.read<AuthRepository>().getCachedUser();
+    } else {
+      return false;
+    }
+
+    if (activeUser == null || !activeUser.isHost || !activeUser.hasGroup) {
+      return false;
+    }
+
+    final incomingGroupId = UserModel.normalizeGroupId(data['group_id']);
+    if (incomingGroupId.isNotEmpty && incomingGroupId != activeUser.groupId) {
+      return false;
+    }
+    return true;
+  }
+
+  Future<void> _handleMessage(RemoteMessage message) async {
+    if (!await _shouldAcceptSosPayload(message.data)) return;
     final lat = double.tryParse(message.data['lat']?.toString() ?? '');
     final lng = double.tryParse(message.data['lng']?.toString() ?? '');
     if (lat != null && lng != null) {
@@ -168,18 +195,20 @@ class _MyAppState extends State<MyApp> {
 
     flutterLocalNotificationsPlugin.initialize(
       const InitializationSettings(android: androidInit, iOS: iosInit),
-      onDidReceiveNotificationResponse: (response) {
+      onDidReceiveNotificationResponse: (response) async {
         if (response.payload == null) return;
         try {
           final data = jsonDecode(response.payload!);
           if (data is! Map) return;
-          final lat = double.tryParse(data['lat']?.toString() ?? '');
-          final lng = double.tryParse(data['lng']?.toString() ?? '');
+          final payloadMap = Map<String, dynamic>.from(data);
+          if (!await _shouldAcceptSosPayload(payloadMap)) return;
+          final lat = double.tryParse(payloadMap['lat']?.toString() ?? '');
+          final lng = double.tryParse(payloadMap['lng']?.toString() ?? '');
           if (lat != null && lng != null) {
             _triggerSOSModal(
               lat,
               lng,
-              data['sender_name']?.toString() ?? "Seseorang",
+              payloadMap['sender_name']?.toString() ?? "Seseorang",
             );
           }
         } catch (e) {
@@ -188,7 +217,9 @@ class _MyAppState extends State<MyApp> {
       },
     );
 
-    _onMessageSub = FirebaseMessaging.onMessage.listen((message) {
+    _onMessageSub = FirebaseMessaging.onMessage.listen((message) async {
+      if (!await _shouldAcceptSosPayload(message.data)) return;
+
       final RemoteNotification? notification = message.notification;
       final String senderName =
           message.data['sender_name']?.toString() ?? "Seseorang";

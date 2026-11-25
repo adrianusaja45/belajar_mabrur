@@ -17,6 +17,16 @@ class UserModel extends Equatable {
 
   bool get isHost => role == 'host';
 
+  static String normalizeGroupId(Object? raw) {
+    final value = raw?.toString().trim() ?? '';
+    if (value.isEmpty || value == '0' || value.toLowerCase() == 'default') {
+      return '';
+    }
+    return value;
+  }
+
+  bool get hasGroup => normalizeGroupId(groupId).isNotEmpty;
+
   String get sosTopic => 'sos_group_$groupId';
 
   factory UserModel.fromJson(
@@ -36,7 +46,7 @@ class UserModel extends Equatable {
       name: resolvedName,
       username: resolvedUsername,
       role: json['role']?.toString() ?? 'user',
-      groupId: json['group_id']?.toString() ?? 'default',
+      groupId: normalizeGroupId(json['group_id']),
     );
   }
 

@@ -14,6 +14,7 @@ import '../models/user_model.dart';
 class AuthRepository {
   static const Duration _requestTimeout = Duration(seconds: 15);
   static const String _tokenKey = 'auth_token';
+  static const String _lastSosTopicKey = 'last_subscribed_sos_topic';
 
   final FlutterSecureStorage _secureStorage;
   final http.Client _client;
@@ -203,13 +204,28 @@ class AuthRepository {
       name: prefs.getString('user_name') ?? 'User',
       username: prefs.getString('user_username') ?? '-',
       role: role ?? 'user',
-      groupId: prefs.getString('user_group_id') ?? 'default',
+      groupId: UserModel.normalizeGroupId(prefs.getString('user_group_id')),
     );
   }
 
   Future<String> getGroupId() async {
     final prefs = await SharedPreferences.getInstance();
-    return prefs.getString('user_group_id') ?? 'default';
+    return UserModel.normalizeGroupId(prefs.getString('user_group_id'));
+  }
+
+  Future<String?> getLastSubscribedSosTopic() async {
+    final prefs = await SharedPreferences.getInstance();
+    final topic = prefs.getString(_lastSosTopicKey)?.trim();
+    return (topic != null && topic.isNotEmpty) ? topic : null;
+  }
+
+  Future<void> setLastSubscribedSosTopic(String? topic) async {
+    final prefs = await SharedPreferences.getInstance();
+    if (topic == null || topic.trim().isEmpty) {
+      await prefs.remove(_lastSosTopicKey);
+    } else {
+      await prefs.setString(_lastSosTopicKey, topic.trim());
+    }
   }
 
   Future<bool> hasToken() async {

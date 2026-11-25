@@ -17,6 +17,7 @@ void main() {
       expect(host.name, 'Ust. Ahmad');
       expect(host.username, 'ahmad');
       expect(host.isHost, isTrue);
+      expect(host.hasGroup, isTrue);
       expect(host.sosTopic, 'sos_group_kloter_7');
 
       final fallback =
@@ -25,7 +26,15 @@ void main() {
       expect(fallback.username, 'jamaah01');
       expect(fallback.role, 'user');
       expect(fallback.isHost, isFalse);
-      expect(fallback.groupId, 'default');
+      expect(fallback.groupId, '');
+      expect(fallback.hasGroup, isFalse);
+
+      expect(UserModel.normalizeGroupId(null), '');
+      expect(UserModel.normalizeGroupId('  '), '');
+      expect(UserModel.normalizeGroupId('0'), '');
+      expect(UserModel.normalizeGroupId('default'), '');
+      expect(UserModel.normalizeGroupId(' DEFAULT '), '');
+      expect(UserModel.normalizeGroupId(12), '12');
     });
   });
 

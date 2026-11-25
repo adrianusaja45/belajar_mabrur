@@ -9,7 +9,7 @@ import 'dashboard_state.dart';
 class DashboardCubit extends Cubit<DashboardState> {
   final SosRepository _sosRepository;
   StreamSubscription<List<Map<String, dynamic>>>? _sosSubscription;
-  String _activeGroupId = 'default';
+  String _activeGroupId = '';
   int _clearedBeforeMillis = 0;
 
   DashboardCubit({SosRepository? sosRepository})
@@ -147,10 +147,26 @@ class DashboardCubit extends Cubit<DashboardState> {
     );
   }
 
+  Future<void> stopWatchingSos() async {
+    await _sosSubscription?.cancel();
+    _sosSubscription = null;
+    _activeGroupId = '';
+    if (isClosed) return;
+    emit(
+      DashboardState(
+        tabIndex: state.tabIndex,
+        sosHistory: const [],
+        isSosLoading: false,
+        sosError: null,
+        pendingSosModal: state.pendingSosModal,
+      ),
+    );
+  }
+
   Future<void> resetOnLogout() async {
     await _sosSubscription?.cancel();
     _sosSubscription = null;
-    _activeGroupId = 'default';
+    _activeGroupId = '';
     _clearedBeforeMillis = 0;
     if (isClosed) return;
     emit(const DashboardState(tabIndex: 0, sosHistory: []));

@@ -4,11 +4,14 @@ import 'package:belajar_mabrur/data/models/content_model.dart';
 import 'package:belajar_mabrur/data/models/user_model.dart';
 import 'package:belajar_mabrur/data/repositories/auth_repository.dart';
 import 'package:belajar_mabrur/data/repositories/content_repository.dart';
+import 'package:belajar_mabrur/data/repositories/sos_repository.dart';
 import 'package:belajar_mabrur/logic/auth/auth_bloc.dart';
+import 'package:belajar_mabrur/logic/dashboard/dashboard_cubit.dart';
 import 'package:belajar_mabrur/screens/account_tab.dart';
 import 'package:belajar_mabrur/screens/home_tab.dart';
 import 'package:belajar_mabrur/screens/join_tab.dart';
 import 'package:belajar_mabrur/screens/login_screen.dart';
+import 'package:belajar_mabrur/screens/map_sos_tab.dart';
 import 'package:belajar_mabrur/screens/register_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -28,6 +31,24 @@ class _StubContentRepository extends ContentRepository {
   @override
   Future<({List<ContentModel> items, bool fromCache})> getContents() =>
       handler();
+}
+
+class _StubSosRepository implements SosRepository {
+  final List<String> watchedGroups = [];
+
+  @override
+  Future<void> createReport({
+    required String groupId,
+    required String senderName,
+    required double lat,
+    required double lng,
+  }) async {}
+
+  @override
+  Stream<List<Map<String, dynamic>>> watchReports(String groupId) {
+    watchedGroups.add(groupId);
+    return const Stream.empty();
+  }
 }
 
 void main() {
@@ -322,6 +343,121 @@ void main() {
       await tester.pump();
       expect(find.text('Koneksi terputus.'), findsOneWidget);
       expect(find.text('Coba Lagi'), findsOneWidget);
+    });
+  });
+
+  group('MapSosTab group guard', () {
+    testWidgets('disables SOS button and shows notice for ungrouped jamaah',
+        (tester) async {
+      final authRepo = _StubAuthRepository();
+      final sosRepo = _StubSosRepository();
+      final authBloc = AuthBloc(
+        authRepository: authRepo,
+        subscribeToTopic: (_) async {},
+        unsubscribeFromTopic: (_) async {},
+      )..emit(
+          const AuthSuccess(
+            'Berhasil masuk.',
+            user: UserModel(
+              id: '21',
+              name: 'Aisyah',
+              username: 'aisyah',
+              role: 'user',
+              groupId: '',
+            ),
+          ),
+        );
+      final dashboardCubit = DashboardCubit(sosRepository: sosRepo);
+
+      await tester.pumpWidget(
+        MultiRepositoryProvider(
+          providers: [
+            RepositoryProvider<AuthRepository>.value(value: authRepo),
+            RepositoryProvider<SosRepository>.value(value: sosRepo),
+          ],
+          child: MultiBlocProvider(
+            providers: [
+              BlocProvider<AuthBloc>(create: (_) => authBloc),
+              BlocProvider<DashboardCubit>(create: (_) => dashboardCubit),
+            ],
+            child: MaterialApp(
+              theme: AppTheme.lightTheme,
+              home: const MapSosTab(
+                mapOverride: SizedBox.expand(),
+                loadInitialLocation: false,
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      expect(
+        find.text(
+          'Anda belum terdaftar dalam grup. Hubungi pembimbing atau admin agar sinyal SOS dapat digunakan.',
+        ),
+        findsOneWidget,
+      );
+
+      final buttonFinder = find.ancestor(
+        of: find.text('Kirim Sinyal SOS'),
+        matching:
+            find.byWidgetPredicate((widget) => widget is ButtonStyleButton),
+      );
+      final sosButton = tester.widget<ButtonStyleButton>(buttonFinder);
+      expect(sosButton.onPressed, isNull);
+      expect(sosRepo.watchedGroups, isEmpty);
+    });
+
+    testWidgets('shows ungrouped message and skips Firestore watch for host',
+        (tester) async {
+      final authRepo = _StubAuthRepository();
+      final sosRepo = _StubSosRepository();
+      final authBloc = AuthBloc(
+        authRepository: authRepo,
+        subscribeToTopic: (_) async {},
+        unsubscribeFromTopic: (_) async {},
+      )..emit(
+          const AuthSuccess(
+            'Berhasil masuk.',
+            user: UserModel(
+              id: '11',
+              name: 'Ust. Farhan',
+              username: 'farhan',
+              role: 'host',
+              groupId: '',
+            ),
+          ),
+        );
+      final dashboardCubit = DashboardCubit(sosRepository: sosRepo);
+
+      await tester.pumpWidget(
+        MultiRepositoryProvider(
+          providers: [
+            RepositoryProvider<AuthRepository>.value(value: authRepo),
+            RepositoryProvider<SosRepository>.value(value: sosRepo),
+          ],
+          child: MultiBlocProvider(
+            providers: [
+              BlocProvider<AuthBloc>(create: (_) => authBloc),
+              BlocProvider<DashboardCubit>(create: (_) => dashboardCubit),
+            ],
+            child: MaterialApp(
+              theme: AppTheme.lightTheme,
+              home: const MapSosTab(
+                mapOverride: SizedBox.expand(),
+                loadInitialLocation: false,
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.drag(find.text('Riwayat SOS'), const Offset(0, -300));
+      await tester.pumpAndSettle();
+
+      expect(sosRepo.watchedGroups, isEmpty);
+      expect(find.text('Anda belum terdaftar dalam grup.'), findsOneWidget);
     });
   });
 }
