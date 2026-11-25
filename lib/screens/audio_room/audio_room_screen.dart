@@ -29,10 +29,114 @@ class AudioRoomScreen extends StatefulWidget {
 }
 
 class _AudioRoomScreenState extends State<AudioRoomScreen> {
+  bool _initialHostSeatReady = false;
+  bool _suppressedInitialHostAutoUnmute = false;
+  DateTime? _hostInitialSeatTime;
+  String? _activeRequestUserId;
+  BuildContext? _activeRequestDialogContext;
+
   @override
   void initState() {
     super.initState();
     AudioRoomController.instance.setSession(roomID: widget.roomID);
+  }
+
+  BuildContext? _resolveActiveContext() {
+    final navContext = navigatorKey.currentContext;
+    if (navContext != null && navContext.mounted) {
+      return navContext;
+    }
+    return mounted ? context : null;
+  }
+
+  void _showRoomSnackBar(String message) {
+    final activeContext = _resolveActiveContext();
+    if (activeContext == null) return;
+    ScaffoldMessenger.maybeOf(activeContext)?.showSnackBar(
+      SnackBar(content: Text(message)),
+    );
+  }
+
+  void _muteInitialHostAutoUnmuteIfNeeded() {
+    if (!widget.isHost || _suppressedInitialHostAutoUnmute) return;
+    _suppressedInitialHostAutoUnmute = true;
+    // Zego SDK mengaktifkan mic otomatis saat takeOnSeat(0) meski turnOnMicrophoneWhenJoining false.
+    ZegoUIKitPrebuiltLiveAudioRoomController()
+        .audioVideo
+        .microphone
+        .turnOn(false);
+  }
+
+  Future<void> _showSpeakRequestDialog({
+    required String userId,
+    required String userName,
+  }) async {
+    if (!widget.isHost) return;
+    final requesterName =
+        userName.trim().isNotEmpty ? userName.trim() : 'Jamaah';
+
+    if (_activeRequestUserId != null) {
+      _showRoomSnackBar(
+        '$requesterName juga meminta izin berbicara. Lihat di daftar peserta.',
+      );
+      return;
+    }
+
+    final dialogContext = _resolveActiveContext();
+    if (dialogContext == null) return;
+
+    _activeRequestUserId = userId;
+    bool? approved;
+    try {
+      approved = await showDialog<bool>(
+        context: dialogContext,
+        barrierDismissible: true,
+        builder: (ctx) {
+          _activeRequestDialogContext = ctx;
+          return AlertDialog(
+            title: const Text('Permintaan Izin Bicara'),
+            content: Text('$requesterName meminta izin untuk berbicara.'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: const Text(
+                  'Tolak',
+                  style: TextStyle(color: AppColors.textSecondary),
+                ),
+              ),
+              ElevatedButton(
+                onPressed: () => Navigator.pop(ctx, true),
+                child: const Text('Izinkan'),
+              ),
+            ],
+          );
+        },
+      );
+    } finally {
+      if (_activeRequestUserId == userId) {
+        _activeRequestUserId = null;
+        _activeRequestDialogContext = null;
+      }
+    }
+
+    final seatHost = ZegoUIKitPrebuiltLiveAudioRoomController().seat.host;
+    if (approved == true) {
+      await seatHost.acceptTakingRequest(userId);
+    } else if (approved == false) {
+      await seatHost.rejectTakingRequest(userId);
+    }
+  }
+
+  void _dismissSpeakRequestDialog(String userId) {
+    if (_activeRequestUserId != userId) return;
+    final dialogCtx = _activeRequestDialogContext;
+    _activeRequestUserId = null;
+    _activeRequestDialogContext = null;
+    if (dialogCtx != null &&
+        dialogCtx.mounted &&
+        Navigator.of(dialogCtx).canPop()) {
+      Navigator.of(dialogCtx).pop();
+    }
   }
 
   Future<bool> _hostLeaveDialog(BuildContext context) async {
@@ -164,6 +268,8 @@ class _AudioRoomScreenState extends State<AudioRoomScreen> {
                 }
               },
               onEnded: (event, defaultAction) {
+                _activeRequestUserId = null;
+                _activeRequestDialogContext = null;
                 AudioRoomController.instance.clearSession();
                 // Zego calls minimize.hide() before defaultAction, so skip pop when leaving from PiP.
                 if (event.isFromMinimizing) {
@@ -171,6 +277,69 @@ class _AudioRoomScreenState extends State<AudioRoomScreen> {
                 }
                 defaultAction.call();
               },
+              audioVideo: ZegoLiveAudioRoomAudioVideoEvents(
+                onMicrophoneStateChanged: (isOn) {
+                  // shortcut: jendela 2 detik menangkap auto-unmute SDK setelah takeOnSeat(0), hapus jika SDK menghormati turnOnMicrophoneWhenJoining untuk host.
+                  if (widget.isHost &&
+                      isOn &&
+                      !_suppressedInitialHostAutoUnmute &&
+                      _hostInitialSeatTime != null &&
+                      DateTime.now().difference(_hostInitialSeatTime!) <
+                          const Duration(seconds: 2)) {
+                    _muteInitialHostAutoUnmuteIfNeeded();
+                  }
+                },
+              ),
+              seat: ZegoLiveAudioRoomSeatEvents(
+                onChanged: (takenSeats, untakenSeats) {
+                  if (widget.isHost &&
+                      !_initialHostSeatReady &&
+                      takenSeats.values.any((u) => u.id == widget.userID)) {
+                    _initialHostSeatReady = true;
+                    _hostInitialSeatTime = DateTime.now();
+                    final controller =
+                        ZegoUIKitPrebuiltLiveAudioRoomController();
+                    if (!controller.seat.isRoomSeatLocked) {
+                      controller.seat.host.close();
+                    }
+                    if (controller.audioVideo.microphone.localState) {
+                      _muteInitialHostAutoUnmuteIfNeeded();
+                    }
+                  }
+                },
+                host: ZegoLiveAudioRoomSeatHostEvents(
+                  onTakingRequested: (audience) {
+                    if (widget.isHost) {
+                      _showSpeakRequestDialog(
+                        userId: audience.id,
+                        userName: audience.name,
+                      );
+                    }
+                  },
+                  onTakingRequestCanceled: (audience) {
+                    if (widget.isHost) {
+                      _dismissSpeakRequestDialog(audience.id);
+                    }
+                  },
+                ),
+                audience: ZegoLiveAudioRoomSeatAudienceEvents(
+                  onTakingRequestRejected: () {
+                    _showRoomSnackBar(
+                      'Permintaan izin berbicara ditolak oleh pembimbing.',
+                    );
+                  },
+                  onTakingRequestFailed: () {
+                    _showRoomSnackBar(
+                      'Gagal meminta izin berbicara. Pastikan pembimbing berada di ruang.',
+                    );
+                  },
+                  onTakingFailed: () {
+                    _showRoomSnackBar(
+                      'Slot pembicara sedang penuh. Coba lagi beberapa saat.',
+                    );
+                  },
+                ),
+              ),
               user: ZegoLiveAudioRoomUserEvents(
                 onLeave: (user) {
                   if (user.id == widget.hostUserID && !widget.isHost) {

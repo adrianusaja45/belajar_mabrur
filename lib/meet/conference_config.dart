@@ -17,9 +17,11 @@ class ConferenceConfig {
         ? ZegoUIKitPrebuiltLiveAudioRoomConfig.host()
         : ZegoUIKitPrebuiltLiveAudioRoomConfig.audience();
 
-    config.turnOnMicrophoneWhenJoining = isHost;
+    config.turnOnMicrophoneWhenJoining = false;
 
     config.useSpeakerWhenJoining = true;
+
+    config.seat.closeWhenJoining = true;
 
     config.topMenuBar.buttons = [
       ZegoLiveAudioRoomMenuBarButtonName.minimizingButton,
@@ -28,7 +30,6 @@ class ConferenceConfig {
     config.bottomMenuBar.hostButtons = const [
       ZegoLiveAudioRoomMenuBarButtonName.toggleMicrophoneButton,
       ZegoLiveAudioRoomMenuBarButtonName.showMemberListButton,
-      ZegoLiveAudioRoomMenuBarButtonName.closeSeatButton,
       ZegoLiveAudioRoomMenuBarButtonName.leaveButton,
     ];
 
@@ -43,6 +44,58 @@ class ConferenceConfig {
       ZegoLiveAudioRoomMenuBarButtonName.showMemberListButton,
       ZegoLiveAudioRoomMenuBarButtonName.leaveButton,
     ];
+
+    // Mencegah jamaah mengambil slot pembicara langsung tanpa ACC pembimbing.
+    config.popUpMenu.seatClicked.hiddenMenus = const [
+      ZegoLiveAudioRoomPopupItemValue.takeOnSeat,
+    ];
+
+    config.innerText = ZegoUIKitPrebuiltLiveAudioRoomInnerText(
+      takeSeatMenuButton: 'Mulai Berbicara',
+      switchSeatMenuButton: 'Pindah Posisi',
+      removeSpeakerMenuDialogButton: 'Turunkan %0 dari Pembicara',
+      muteSpeakerMenuDialogButton: 'Bisukan %0',
+      cancelMenuDialogButton: 'Batal',
+      removeUserMenuDialogButton: 'Keluarkan %0 dari Ruang',
+      memberListTitle: 'Peserta',
+      memberListRoleYou: 'Anda',
+      memberListRoleHost: 'Pembimbing',
+      memberListRoleSpeaker: 'Pembicara',
+      removeSpeakerFailedToast: 'Gagal menurunkan %0',
+      messageEmptyToast: 'Tulis pesan...',
+      applyToTakeSeatButton: 'Minta Izin Bicara',
+      cancelTheTakeSeatApplicationButton: 'Batal Minta Izin',
+      memberListAgreeButton: 'Izinkan',
+      memberListDisagreeButton: 'Tolak',
+      inviteToTakeSeatMenuDialogButton: 'Undang %0 untuk Berbicara',
+      assignAsCoHostMenuDialogButton: 'Jadikan %0 Asisten Pembimbing',
+      revokeCoHostPrivilegesMenuDialogButton: 'Cabut Izin Asisten %0',
+      microphonePermissionSettingDialogInfo: ZegoLiveAudioRoomDialogInfo(
+        title: 'Mikrofon Tidak Dapat Digunakan',
+        message:
+            'Aktifkan izin mikrofon di pengaturan perangkat untuk berbicara.',
+        cancelButtonName: 'Batal',
+        confirmButtonName: 'Pengaturan',
+      ),
+      removeFromSeatDialogInfo: ZegoLiveAudioRoomDialogInfo(
+        title: 'Turunkan Pembicara',
+        message: 'Turunkan %0 kembali menjadi pendengar?',
+        cancelButtonName: 'Batal',
+        confirmButtonName: 'Turunkan',
+      ),
+      leaveSeatDialogInfo: ZegoLiveAudioRoomDialogInfo(
+        title: 'Selesai Berbicara',
+        message: 'Kembali menjadi pendengar dengan mikrofon nonaktif?',
+        cancelButtonName: 'Batal',
+        confirmButtonName: 'Ya',
+      ),
+      hostInviteTakeSeatDialog: ZegoLiveAudioRoomDialogInfo(
+        title: 'Undangan Berbicara',
+        message: 'Pembimbing mengundang Anda untuk berbicara.',
+        cancelButtonName: 'Tolak',
+        confirmButtonName: 'Terima',
+      ),
+    );
 
     config.background = Container(
       decoration: BoxDecoration(
