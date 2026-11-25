@@ -229,6 +229,58 @@ void main() {
       expect(find.text('Masukkan ID Ruang terlebih dahulu.'), findsOneWidget);
     });
 
+    testWidgets(
+        'JoinTab blocks host and offers Settings when mic permanently denied',
+        (tester) async {
+      final authRepo = _StubAuthRepository();
+      final authBloc = AuthBloc(
+        authRepository: authRepo,
+        subscribeToTopic: (_) async {},
+        unsubscribeFromTopic: (_) async {},
+      )..emit(
+          const AuthSuccess(
+            'Berhasil masuk.',
+            user: UserModel(
+              id: '10',
+              name: 'Ust. Hasan',
+              username: 'hasan',
+              role: 'host',
+              groupId: 'g1',
+            ),
+          ),
+        );
+
+      await tester.pumpWidget(
+        RepositoryProvider<AuthRepository>.value(
+          value: authRepo,
+          child: BlocProvider<AuthBloc>(
+            create: (_) => authBloc,
+            child: MaterialApp(
+              theme: AppTheme.lightTheme,
+              home: JoinTab(
+                checkMicrophonePermission: () async =>
+                    (granted: false, permanentlyDenied: true),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      await tester.enterText(find.byType(TextField), '2701');
+      await tester.tap(find.byType(SwitchListTile));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Buka Ruang Audio'));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.text('Izin mikrofon diperlukan untuk membuka ruang audio.'),
+        findsOneWidget,
+      );
+      expect(find.text('Pengaturan'), findsOneWidget);
+      expect(find.byType(JoinTab), findsOneWidget);
+    });
+
     testWidgets('AccountTab separates host vs jamaah actions and error state',
         (tester) async {
       final authRepo = _StubAuthRepository();

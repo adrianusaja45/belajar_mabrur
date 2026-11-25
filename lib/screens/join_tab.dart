@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:uuid/uuid.dart';
 
 import '../core/theme/app_theme.dart';
@@ -9,7 +10,10 @@ import '../logic/auth/auth_bloc.dart';
 import 'audio_room/audio_room_screen.dart';
 
 class JoinTab extends StatefulWidget {
-  const JoinTab({super.key});
+  final Future<({bool granted, bool permanentlyDenied})> Function()?
+      checkMicrophonePermission;
+
+  const JoinTab({super.key, this.checkMicrophonePermission});
 
   @override
   State<JoinTab> createState() => _JoinTabState();
@@ -20,6 +24,7 @@ class _JoinTabState extends State<JoinTab> {
   late final String _fallbackUserId;
   UserModel? _cachedUser;
   bool _isHost = false;
+  bool _isJoining = false;
 
   @override
   void initState() {
@@ -253,11 +258,30 @@ class _JoinTabState extends State<JoinTab> {
     );
   }
 
+  Future<({bool granted, bool permanentlyDenied})>
+      _defaultCheckMicrophonePermission() async {
+    try {
+      var status = await Permission.microphone.status;
+      if (!status.isGranted) {
+        status = await Permission.microphone.request();
+      }
+      return (
+        granted: status.isGranted,
+        permanentlyDenied: status.isPermanentlyDenied,
+      );
+    } catch (e) {
+      debugPrint('Gagal memeriksa izin mikrofon: $e');
+      return (granted: true, permanentlyDenied: false);
+    }
+  }
+
   Future<void> _joinRoom({
     required String userName,
     required String userId,
     required bool isHostUser,
   }) async {
+    if (_isJoining) return;
+
     final roomID = _roomIDController.text.trim();
     if (roomID.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -269,22 +293,60 @@ class _JoinTabState extends State<JoinTab> {
       return;
     }
 
-    final standardizedHostID = "host_$roomID";
-    final myUserID = isHostUser ? standardizedHostID : userId;
-    final displayName = userName.isNotEmpty ? userName : "User_$roomID";
+    _isJoining = true;
+    try {
+      final micResult = widget.checkMicrophonePermission != null
+          ? await widget.checkMicrophonePermission!()
+          : await _defaultCheckMicrophonePermission();
+      if (!mounted) return;
 
-    if (!mounted) return;
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => AudioRoomScreen(
-          roomID: roomID,
-          isHost: isHostUser,
-          userID: myUserID,
-          displayName: displayName,
-          hostUserID: standardizedHostID,
+      if (!micResult.granted) {
+        if (isHostUser) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: const Text(
+                "Izin mikrofon diperlukan untuk membuka ruang audio.",
+              ),
+              backgroundColor: AppColors.error,
+              action: micResult.permanentlyDenied
+                  ? const SnackBarAction(
+                      label: 'Pengaturan',
+                      textColor: AppColors.textOnPrimary,
+                      onPressed: openAppSettings,
+                    )
+                  : null,
+            ),
+          );
+          return;
+        }
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              "Anda bergabung sebagai pendengar. Izinkan mikrofon di Pengaturan jika ingin berbicara.",
+            ),
+          ),
+        );
+      }
+
+      final standardizedHostID = "host_$roomID";
+      final myUserID = isHostUser ? standardizedHostID : userId;
+      final displayName = userName.isNotEmpty ? userName : "User_$roomID";
+
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => AudioRoomScreen(
+            roomID: roomID,
+            isHost: isHostUser,
+            userID: myUserID,
+            displayName: displayName,
+            hostUserID: standardizedHostID,
+          ),
         ),
-      ),
-    );
+      );
+    } finally {
+      _isJoining = false;
+    }
   }
 }
